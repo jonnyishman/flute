@@ -1,10 +1,6 @@
 name: Server Tests
 
 on:
-  concurrency:
-    group: ${{ github.workflow }}-${{ github.ref }}
-    cancel-in-progress: true
-
   pull_request:
     paths:
       - 'server/**/*.py'
@@ -51,4 +47,7 @@ jobs:
       
     - name: Run tests with pytest
       run: pytest
-      
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true 
