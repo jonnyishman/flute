@@ -1,6 +1,10 @@
 name: Claude Code Review
 
 on:
+  concurrency:
+    group: ${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: true 
+ 
   pull_request:
     types: [opened, synchronize]
     # Optional: Only run on specific file changes
