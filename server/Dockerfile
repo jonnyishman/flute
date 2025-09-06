@@ -18,9 +18,5 @@ RUN pip install -e ".[dev]"
 # Expose port for Flask dev server
 EXPOSE 5000
 
-# Set environment variables for development
-ENV FLASK_ENV=development
-ENV FLASK_DEBUG=1
-
 # Start Flask development server
 CMD ["python", "app.py"]
