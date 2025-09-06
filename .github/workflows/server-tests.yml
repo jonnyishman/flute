@@ -47,4 +47,7 @@ jobs:
       
     - name: Run tests with pytest
       run: pytest
-      
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true 
