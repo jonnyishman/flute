@@ -1,6 +1,5 @@
 """Book and Chapter models for the Flask application."""
 
-from sqlalchemy.sql import func
 from .base import BaseModel, db
 
 

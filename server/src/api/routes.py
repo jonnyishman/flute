@@ -1,6 +1,5 @@
 """API routes for the Flask application."""
 
-from typing import List
 from flask import Blueprint, jsonify
 from flask_pydantic import validate
 from sqlalchemy.exc import IntegrityError

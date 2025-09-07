@@ -1,7 +1,6 @@
 """Tests for API endpoints."""
 
 import json
-import pytest
 
 
 class TestHealthEndpoint:

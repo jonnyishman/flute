@@ -1,7 +1,5 @@
 """Tests for database models."""
 
-import pytest
-from src.models import db
 from src.models.user import User
 
 
