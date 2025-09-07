@@ -12,7 +12,11 @@ import { Book } from '../types/book'
 import { fetchBooks } from '../data/mockBooks'
 import BookTile from './BookTile'
 
-const BooksLandingPage = () => {
+interface BooksLandingPageProps {
+  onBookClick?: (book: Book) => void
+}
+
+const BooksLandingPage = ({ onBookClick }: BooksLandingPageProps) => {
   const [books, setBooks] = useState<Book[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -117,7 +121,7 @@ const BooksLandingPage = () => {
         <Grid container spacing={3}>
           {books.map((book) => (
             <Grid xs={12} sm={6} md={4} lg={3} key={book.id}>
-              <BookTile book={book} />
+              <BookTile book={book} onClick={onBookClick} />
             </Grid>
           ))}
         </Grid>

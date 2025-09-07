@@ -18,9 +18,10 @@ import { Book } from '../types/book'
 
 interface BookTileProps {
   book: Book
+  onClick?: (book: Book) => void
 }
 
-const BookTile = ({ book }: BookTileProps) => {
+const BookTile = ({ book, onClick }: BookTileProps) => {
   const formatNumber = (num: number): string => {
     if (num >= 1000) {
       return `${(num / 1000).toFixed(1)}k`
@@ -57,11 +58,13 @@ const BookTile = ({ book }: BookTileProps) => {
         display: 'flex',
         flexDirection: 'column',
         transition: 'transform 0.2s, box-shadow 0.2s',
+        cursor: onClick ? 'pointer' : 'default',
         '&:hover': {
           transform: 'translateY(-4px)',
           boxShadow: 4,
         },
       }}
+      onClick={() => onClick?.(book)}
     >
       <CardMedia
         component="img"
