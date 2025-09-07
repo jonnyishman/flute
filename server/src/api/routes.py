@@ -133,8 +133,7 @@ def create_chapter(book_id: int, body: ChapterCreate):
 
     # Check if chapter number already exists for this book
     existing_chapter = Chapter.query.filter_by(
-        book_id=book_id,
-        chapter_number=body.chapter_number
+        book_id=book_id, chapter_number=body.chapter_number
     ).first()
 
     if existing_chapter:
@@ -152,7 +151,7 @@ def create_chapter(book_id: int, body: ChapterCreate):
             word_count=word_count
         )
         chapter.save()
-        
+
         # Update book's total chapters
         book.total_chapters = Chapter.query.filter_by(book_id=book_id).count()
         book.save()
@@ -167,8 +166,7 @@ def create_chapter(book_id: int, body: ChapterCreate):
 def get_chapter(book_id: int, chapter_number: int):
     """Get a specific chapter by book ID and chapter number."""
     chapter = Chapter.query.filter_by(
-        book_id=book_id,
-        chapter_number=chapter_number
+        book_id=book_id, chapter_number=chapter_number
     ).first_or_404()
 
     return jsonify(ChapterResponse.model_validate(chapter).model_dump())
