@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
+import { useParams, useNavigate } from 'react-router-dom'
 import {
   Box,
   AppBar,
@@ -14,144 +15,425 @@ import {
   FormLabel,
   useTheme,
   useMediaQuery,
+  Alert,
+  Snackbar,
+  CircularProgress,
+  Fade,
 } from '@mui/material'
 import {
   ArrowBack,
   Settings as SettingsIcon,
   Close,
+  KeyboardArrowLeft,
+  KeyboardArrowRight,
 } from '@mui/icons-material'
+import { fetchBooks } from '../data/mockBooks'
 import { Book } from '../types/book'
 
 interface BookReaderProps {
-  book: Book
+  book?: Book
   chapter?: number
-  onBackToLibrary: () => void
+  onBackToLibrary?: () => void
 }
 
 interface ReaderSettings {
-  fontSize: number
-  lineSpacing: number
+  readonly fontSize: number
+  readonly lineSpacing: number
 }
 
-// Mock chapter data
+interface BookReaderState {
+  book: Book | null
+  loading: boolean
+  error: string | null
+  chapterContent: string
+  settingsOpen: boolean
+  currentChapter: number
+  settings: ReaderSettings
+  showTransition: boolean
+}
+
+// Validation schemas
+const validateSettings = (settings: any): ReaderSettings => {
+  if (!settings || typeof settings !== 'object') {
+    throw new Error('Invalid settings format')
+  }
+  
+  const fontSize = typeof settings.fontSize === 'number' && settings.fontSize >= 12 && settings.fontSize <= 24
+    ? settings.fontSize : 16
+  const lineSpacing = typeof settings.lineSpacing === 'number' && settings.lineSpacing >= 1.2 && settings.lineSpacing <= 2.5
+    ? settings.lineSpacing : 1.6
+    
+  return { fontSize, lineSpacing }
+}
+
+// Safe localStorage operations
+const safeLocalStorage = {
+  getItem: (key: string): string | null => {
+    try {
+      return localStorage.getItem(key)
+    } catch (error) {
+      console.warn('Failed to read from localStorage:', error)
+      return null
+    }
+  },
+  setItem: (key: string, value: string): void => {
+    try {
+      localStorage.setItem(key, value)
+    } catch (error) {
+      console.warn('Failed to write to localStorage:', error)
+    }
+  }
+}
+
+// Mock chapter content generation with error handling
 const generateChapterContent = (bookId: string, chapterNumber: number): string => {
-  const paragraphs = Math.floor(Math.random() * 20) + 30 // 30-50 paragraphs per chapter
-  const sentences = [
-    "The ancient oak tree stood majestically in the center of the village square, its gnarled branches reaching toward the cloudy sky.",
-    "She carefully opened the leather-bound book, and the smell of old parchment filled her nostrils.",
-    "The sound of footsteps echoed through the empty corridor, growing louder with each passing moment.",
-    "Golden sunlight streamed through the tall windows, casting dancing shadows on the worn wooden floor.",
-    "He paused at the crossroads, unsure which path would lead him to his destination.",
-    "The distant mountains were shrouded in morning mist, their peaks barely visible through the haze.",
-    "Her fingers traced the intricate patterns carved into the stone wall, feeling the history beneath her touch.",
-    "The old man's eyes twinkled with wisdom as he began to tell his story.",
-    "Rain drummed steadily against the windowpane, creating a soothing rhythm that lulled her to sleep.",
-    "The market square bustled with activity as vendors called out their wares to passing customers.",
-  ]
-  
-  const content = Array.from({ length: paragraphs }, () => {
-    const sentenceCount = Math.floor(Math.random() * 5) + 3 // 3-8 sentences per paragraph
-    const paragraphSentences = Array.from({ length: sentenceCount }, () => 
-      sentences[Math.floor(Math.random() * sentences.length)]
-    )
-    return paragraphSentences.join(' ')
-  })
-  
-  return content.join('\n\n')
+  try {
+    if (!bookId || chapterNumber < 1) {
+      throw new Error('Invalid parameters for chapter generation')
+    }
+    
+    const paragraphs = Math.floor(Math.random() * 20) + 30 // 30-50 paragraphs per chapter
+    const sentences = [
+      "The ancient oak tree stood majestically in the center of the village square, its gnarled branches reaching toward the cloudy sky.",
+      "She carefully opened the leather-bound book, and the smell of old parchment filled her nostrils.",
+      "The sound of footsteps echoed through the empty corridor, growing louder with each passing moment.",
+      "Golden sunlight streamed through the tall windows, casting dancing shadows on the worn wooden floor.",
+      "He paused at the crossroads, unsure which path would lead him to his destination.",
+      "The distant mountains were shrouded in morning mist, their peaks barely visible through the haze.",
+      "Her fingers traced the intricate patterns carved into the stone wall, feeling the history beneath her touch.",
+      "The old man's eyes twinkled with wisdom as he began to tell his story.",
+      "Rain drummed steadily against the windowpane, creating a soothing rhythm that lulled her to sleep.",
+      "The market square bustled with activity as vendors called out their wares to passing customers.",
+    ]
+    
+    const content = Array.from({ length: paragraphs }, (_, index) => {
+      const sentenceCount = Math.floor(Math.random() * 5) + 3 // 3-8 sentences per paragraph
+      const paragraphSentences = Array.from({ length: sentenceCount }, () => 
+        sentences[Math.floor(Math.random() * sentences.length)]
+      )
+      return `${paragraphSentences.join(' ')}`
+    })
+    
+    return content.join('\n\n')
+  } catch (error) {
+    console.error('Failed to generate chapter content:', error)
+    return 'Unable to load chapter content. Please try again later.'
+  }
 }
 
-const BookReader = ({ book, chapter = book.lastReadChapter, onBackToLibrary }: BookReaderProps) => {
+// Haptic feedback function
+const triggerHapticFeedback = () => {
+  if ('vibrate' in navigator && navigator.vibrate) {
+    navigator.vibrate(50) // Brief haptic feedback
+  }
+}
+
+const BookReader = ({ book: propBook, chapter: propChapter, onBackToLibrary }: BookReaderProps) => {
+  const { bookId, chapterId } = useParams<{ bookId: string; chapterId: string }>()
+  const navigate = useNavigate()
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
   
-  const [settingsOpen, setSettingsOpen] = useState(false)
-  const [currentChapter, setCurrentChapter] = useState(chapter)
-  const [chapterContent, setChapterContent] = useState('')
-  const [scrollPosition, setScrollPosition] = useState(0)
+  // Refs for touch handling
+  const touchStartRef = useRef<{ x: number; time: number } | null>(null)
+  const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   
-  // Load settings from localStorage
-  const [settings, setSettings] = useState<ReaderSettings>(() => {
-    const saved = localStorage.getItem('flute-reader-settings')
-    return saved ? JSON.parse(saved) : { fontSize: 16, lineSpacing: 1.6 }
+  const [state, setState] = useState<BookReaderState>({
+    book: propBook || null,
+    loading: !propBook,
+    error: null,
+    chapterContent: '',
+    settingsOpen: false,
+    currentChapter: propChapter || (propBook?.lastReadChapter ?? 1),
+    settings: { fontSize: 16, lineSpacing: 1.6 },
+    showTransition: false,
   })
+
+  // Load settings from localStorage with validation
+  useEffect(() => {
+    const saved = safeLocalStorage.getItem('flute-reader-settings')
+    if (saved) {
+      try {
+        const parsedSettings = JSON.parse(saved)
+        const validatedSettings = validateSettings(parsedSettings)
+        setState(prev => ({ ...prev, settings: validatedSettings }))
+      } catch (error) {
+        console.warn('Failed to parse saved settings, using defaults:', error)
+        setState(prev => ({ ...prev, error: 'Settings corrupted, using defaults' }))
+      }
+    }
+  }, [])
 
   // Save settings to localStorage whenever they change
   useEffect(() => {
-    localStorage.setItem('flute-reader-settings', JSON.stringify(settings))
-  }, [settings])
+    safeLocalStorage.setItem('flute-reader-settings', JSON.stringify(state.settings))
+  }, [state.settings])
 
-  // Load chapter content
+  // Load book data if not provided via props
   useEffect(() => {
-    const content = generateChapterContent(book.id, currentChapter)
-    setChapterContent(content)
-  }, [book.id, currentChapter])
+    if (!state.book && bookId) {
+      const loadBook = async () => {
+        try {
+          setState(prev => ({ ...prev, loading: true, error: null }))
+          const booksData = await fetchBooks(1, 150)
+          const foundBook = booksData.books.find(b => b.id === bookId)
+          
+          if (!foundBook) {
+            setState(prev => ({ ...prev, loading: false, error: 'Book not found' }))
+            return
+          }
+          
+          setState(prev => ({ 
+            ...prev, 
+            book: foundBook, 
+            loading: false,
+            currentChapter: chapterId ? parseInt(chapterId, 10) : foundBook.lastReadChapter
+          }))
+        } catch (error) {
+          setState(prev => ({ ...prev, loading: false, error: 'Failed to load book' }))
+        }
+      }
+      
+      loadBook()
+    }
+  }, [bookId, chapterId, state.book])
 
-  const handleSettingChange = (setting: keyof ReaderSettings, value: number) => {
-    setSettings(prev => ({ ...prev, [setting]: value }))
-  }
+  // Memoized chapter content generation
+  const memoizedChapterContent = useMemo(() => {
+    if (!state.book) return ''
+    return generateChapterContent(state.book.id, state.currentChapter)
+  }, [state.book?.id, state.currentChapter])
 
-  const progressPercentage = Math.round((currentChapter / book.totalChapters) * 100)
+  // Load chapter content with transition effect
+  useEffect(() => {
+    if (memoizedChapterContent) {
+      setState(prev => ({ ...prev, showTransition: true }))
+      const timeout = setTimeout(() => {
+        setState(prev => ({ 
+          ...prev, 
+          chapterContent: memoizedChapterContent,
+          showTransition: false 
+        }))
+      }, 150)
+      return () => clearTimeout(timeout)
+    }
+  }, [memoizedChapterContent])
 
-  const handleTouchStart = (e: React.TouchEvent) => {
-    if (!isMobile) return
-    setScrollPosition(e.touches[0].clientX)
-  }
-
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    if (!isMobile) return
-    const endPosition = e.changedTouches[0].clientX
-    const diff = scrollPosition - endPosition
-    
-    // Swipe threshold of 50px
-    if (Math.abs(diff) > 50) {
-      if (diff > 0 && currentChapter < book.totalChapters) {
-        // Swipe left - next chapter
-        setCurrentChapter(prev => prev + 1)
-      } else if (diff < 0 && currentChapter > 1) {
-        // Swipe right - previous chapter
-        setCurrentChapter(prev => prev - 1)
+  // Update URL when chapter changes
+  useEffect(() => {
+    if (state.book && bookId && chapterId) {
+      const newChapterId = state.currentChapter.toString()
+      if (newChapterId !== chapterId) {
+        navigate(`/book/${bookId}/chapter/${newChapterId}`, { replace: true })
       }
     }
+  }, [state.currentChapter, state.book, bookId, chapterId, navigate])
+
+  const handleSettingChange = useCallback((setting: keyof ReaderSettings, value: number) => {
+    setState(prev => ({
+      ...prev,
+      settings: { ...prev.settings, [setting]: value }
+    }))
+  }, [])
+
+  const handleBackToLibrary = useCallback(() => {
+    if (onBackToLibrary) {
+      onBackToLibrary()
+    } else {
+      navigate('/')
+    }
+  }, [navigate, onBackToLibrary])
+
+  const changeChapter = useCallback((delta: number) => {
+    if (!state.book) return
+    
+    const newChapter = state.currentChapter + delta
+    if (newChapter >= 1 && newChapter <= state.book.totalChapters) {
+      triggerHapticFeedback()
+      setState(prev => ({ ...prev, currentChapter: newChapter }))
+    }
+  }, [state.book, state.currentChapter])
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    if (!isMobile) return
+    touchStartRef.current = {
+      x: e.touches[0].clientX,
+      time: Date.now()
+    }
+  }, [isMobile])
+
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    if (!isMobile || !touchStartRef.current) return
+    
+    const endX = e.changedTouches[0].clientX
+    const endTime = Date.now()
+    const deltaX = touchStartRef.current.x - endX
+    const deltaTime = endTime - touchStartRef.current.time
+    
+    // Debounce rapid swipes
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current)
+    }
+    
+    // Swipe threshold: 50px distance, max 500ms duration
+    if (Math.abs(deltaX) > 50 && deltaTime < 500) {
+      debounceTimeoutRef.current = setTimeout(() => {
+        if (deltaX > 0) {
+          changeChapter(1) // Swipe left - next chapter
+        } else {
+          changeChapter(-1) // Swipe right - previous chapter  
+        }
+      }, 100)
+    }
+    
+    touchStartRef.current = null
+  }, [isMobile, changeChapter])
+
+  // Keyboard navigation
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowLeft' || e.key === 'h') {
+        e.preventDefault()
+        changeChapter(-1)
+      } else if (e.key === 'ArrowRight' || e.key === 'l') {
+        e.preventDefault()
+        changeChapter(1)
+      } else if (e.key === 'Escape') {
+        e.preventDefault()
+        handleBackToLibrary()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [changeChapter, handleBackToLibrary])
+
+  if (state.loading) {
+    return (
+      <Box 
+        sx={{ 
+          display: 'flex', 
+          justifyContent: 'center', 
+          alignItems: 'center', 
+          height: '100vh',
+          flexDirection: 'column',
+          gap: 2
+        }}
+      >
+        <CircularProgress size={60} />
+        <Typography variant="body1">Loading book...</Typography>
+      </Box>
+    )
   }
+
+  if (state.error) {
+    return (
+      <Box 
+        sx={{ 
+          display: 'flex', 
+          justifyContent: 'center', 
+          alignItems: 'center', 
+          height: '100vh',
+          flexDirection: 'column',
+          gap: 2,
+          p: 2
+        }}
+      >
+        <Alert severity="error" sx={{ maxWidth: 400 }}>
+          {state.error}
+        </Alert>
+        <IconButton onClick={handleBackToLibrary} size="large">
+          <ArrowBack />
+        </IconButton>
+      </Box>
+    )
+  }
+
+  if (!state.book) {
+    return null
+  }
+
+  const progressPercentage = Math.round((state.currentChapter / state.book.totalChapters) * 100)
 
   return (
     <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
+      {/* Skip navigation for screen readers */}
+      <Box
+        component="a"
+        href="#main-content"
+        sx={{
+          position: 'absolute',
+          left: '-9999px',
+          '&:focus': {
+            position: 'static',
+            zIndex: 9999,
+            p: 1,
+            bgcolor: 'primary.main',
+            color: 'primary.contrastText'
+          }
+        }}
+      >
+        Skip to main content
+      </Box>
+
       {/* Control Panel */}
       <AppBar position="static" color="default" elevation={1}>
         <Toolbar>
           {/* Back Button */}
           <IconButton 
             edge="start" 
-            onClick={onBackToLibrary}
+            onClick={handleBackToLibrary}
             sx={{ mr: 2 }}
+            aria-label="Back to library"
           >
             <ArrowBack />
+          </IconButton>
+
+          {/* Navigation Controls */}
+          <IconButton 
+            onClick={() => changeChapter(-1)}
+            disabled={state.currentChapter <= 1}
+            aria-label="Previous chapter"
+            sx={{ mr: 1 }}
+          >
+            <KeyboardArrowLeft />
           </IconButton>
 
           {/* Progress Section - Middle */}
           <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
             <Typography variant="body2" color="text.secondary">
-              Chapter {currentChapter} of {book.totalChapters}
+              Chapter {state.currentChapter} of {state.book.totalChapters}
             </Typography>
             <Box sx={{ display: 'flex', alignItems: 'center', width: '200px', mt: 0.5 }}>
-              <Typography variant="caption" sx={{ mr: 1 }}>
+              <Typography variant="caption" sx={{ mr: 1 }} aria-hidden="true">
                 {progressPercentage}%
               </Typography>
               <LinearProgress
                 variant="determinate"
                 value={progressPercentage}
                 sx={{ flexGrow: 1, mr: 1, height: 4, borderRadius: 2 }}
+                aria-label={`Reading progress: ${progressPercentage}% complete`}
               />
-              <Typography variant="caption">
+              <Typography variant="caption" aria-hidden="true">
                 100%
               </Typography>
             </Box>
           </Box>
 
+          <IconButton 
+            onClick={() => changeChapter(1)}
+            disabled={state.currentChapter >= state.book.totalChapters}
+            aria-label="Next chapter"
+            sx={{ mr: 2 }}
+          >
+            <KeyboardArrowRight />
+          </IconButton>
+
           {/* Settings Button */}
           <IconButton 
             edge="end" 
-            onClick={() => setSettingsOpen(true)}
+            onClick={() => setState(prev => ({ ...prev, settingsOpen: true }))}
+            aria-label="Open reading settings"
           >
             <SettingsIcon />
           </IconButton>
@@ -160,7 +442,10 @@ const BookReader = ({ book, chapter = book.lastReadChapter, onBackToLibrary }: B
 
       {/* Chapter Content */}
       <Box
+        id="main-content"
         component="main"
+        role="main"
+        tabIndex={-1}
         sx={{
           flexGrow: 1,
           overflow: isMobile ? 'hidden' : 'auto',
@@ -168,8 +453,8 @@ const BookReader = ({ book, chapter = book.lastReadChapter, onBackToLibrary }: B
           maxWidth: '800px',
           margin: '0 auto',
           width: '100%',
-          fontSize: `${settings.fontSize}px`,
-          lineHeight: settings.lineSpacing,
+          fontSize: `${state.settings.fontSize}px`,
+          lineHeight: state.settings.lineSpacing,
           fontFamily: 'Georgia, serif',
           ...(isMobile && {
             touchAction: 'pan-y',
@@ -177,65 +462,71 @@ const BookReader = ({ book, chapter = book.lastReadChapter, onBackToLibrary }: B
         }}
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
+        aria-live="polite"
+        aria-label={`Reading ${state.book.title}, Chapter ${state.currentChapter}`}
       >
-        <Typography
-          variant="h4"
-          component="h1"
-          gutterBottom
-          sx={{ 
-            mb: 4, 
-            textAlign: 'center',
-            fontSize: `${settings.fontSize * 1.5}px`
-          }}
-        >
-          {book.title}
-        </Typography>
-        
-        <Typography
-          variant="h5"
-          component="h2"
-          gutterBottom
-          sx={{ 
-            mb: 3, 
-            color: 'text.secondary',
-            textAlign: 'center',
-            fontSize: `${settings.fontSize * 1.25}px`
-          }}
-        >
-          Chapter {currentChapter}
-        </Typography>
-
-        <Box sx={{ textAlign: 'justify' }}>
-          {chapterContent.split('\n\n').map((paragraph, index) => (
+        <Fade in={!state.showTransition}>
+          <div>
             <Typography
-              key={index}
-              paragraph
+              variant="h4"
+              component="h1"
+              gutterBottom
               sx={{ 
-                mb: 2,
-                fontSize: `${settings.fontSize}px`,
-                lineHeight: settings.lineSpacing,
+                mb: 4, 
+                textAlign: 'center',
+                fontSize: `${state.settings.fontSize * 1.5}px`
               }}
             >
-              {paragraph}
+              {state.book.title}
             </Typography>
-          ))}
-        </Box>
+            
+            <Typography
+              variant="h5"
+              component="h2"
+              gutterBottom
+              sx={{ 
+                mb: 3, 
+                color: 'text.secondary',
+                textAlign: 'center',
+                fontSize: `${state.settings.fontSize * 1.25}px`
+              }}
+            >
+              Chapter {state.currentChapter}
+            </Typography>
 
-        {/* Navigation hint for mobile */}
-        {isMobile && (
-          <Box sx={{ textAlign: 'center', mt: 4, color: 'text.secondary' }}>
-            <Typography variant="caption">
-              Swipe left for next chapter, right for previous
-            </Typography>
-          </Box>
-        )}
+            <Box sx={{ textAlign: 'justify' }}>
+              {state.chapterContent.split('\n\n').map((paragraph, index) => (
+                <Typography
+                  key={`paragraph-${index}`}
+                  paragraph
+                  sx={{ 
+                    mb: 2,
+                    fontSize: `${state.settings.fontSize}px`,
+                    lineHeight: state.settings.lineSpacing,
+                  }}
+                >
+                  {paragraph}
+                </Typography>
+              ))}
+            </Box>
+
+            {/* Navigation hint for mobile */}
+            {isMobile && (
+              <Box sx={{ textAlign: 'center', mt: 4, color: 'text.secondary' }}>
+                <Typography variant="caption">
+                  Swipe left for next chapter, right for previous • Use arrow keys for keyboard navigation
+                </Typography>
+              </Box>
+            )}
+          </div>
+        </Fade>
       </Box>
 
       {/* Settings Drawer */}
       <Drawer
         anchor="right"
-        open={settingsOpen}
-        onClose={() => setSettingsOpen(false)}
+        open={state.settingsOpen}
+        onClose={() => setState(prev => ({ ...prev, settingsOpen: false }))}
         PaperProps={{
           sx: { width: { xs: '100%', sm: 350 }, p: 2 }
         }}
@@ -244,7 +535,10 @@ const BookReader = ({ book, chapter = book.lastReadChapter, onBackToLibrary }: B
           <Typography variant="h6" sx={{ flexGrow: 1 }}>
             Reading Settings
           </Typography>
-          <IconButton onClick={() => setSettingsOpen(false)}>
+          <IconButton 
+            onClick={() => setState(prev => ({ ...prev, settingsOpen: false }))}
+            aria-label="Close settings"
+          >
             <Close />
           </IconButton>
         </Box>
@@ -252,31 +546,33 @@ const BookReader = ({ book, chapter = book.lastReadChapter, onBackToLibrary }: B
         <List>
           <ListItem sx={{ flexDirection: 'column', alignItems: 'stretch' }}>
             <FormLabel component="legend" sx={{ mb: 2 }}>
-              Font Size: {settings.fontSize}px
+              Font Size: {state.settings.fontSize}px
             </FormLabel>
             <Slider
-              value={settings.fontSize}
+              value={state.settings.fontSize}
               onChange={(_, value) => handleSettingChange('fontSize', value as number)}
               min={12}
               max={24}
               step={1}
               marks
               valueLabelDisplay="auto"
+              aria-label="Font size"
             />
           </ListItem>
 
           <ListItem sx={{ flexDirection: 'column', alignItems: 'stretch' }}>
             <FormLabel component="legend" sx={{ mb: 2 }}>
-              Line Spacing: {settings.lineSpacing}
+              Line Spacing: {state.settings.lineSpacing}
             </FormLabel>
             <Slider
-              value={settings.lineSpacing}
+              value={state.settings.lineSpacing}
               onChange={(_, value) => handleSettingChange('lineSpacing', value as number)}
               min={1.2}
               max={2.5}
               step={0.1}
               marks
               valueLabelDisplay="auto"
+              aria-label="Line spacing"
             />
           </ListItem>
         </List>
@@ -288,15 +584,34 @@ const BookReader = ({ book, chapter = book.lastReadChapter, onBackToLibrary }: B
           <Typography 
             sx={{ 
               mt: 1, 
-              fontSize: `${settings.fontSize}px`,
-              lineHeight: settings.lineSpacing,
+              fontSize: `${state.settings.fontSize}px`,
+              lineHeight: state.settings.lineSpacing,
               fontFamily: 'Georgia, serif'
             }}
           >
             The quick brown fox jumps over the lazy dog. This text shows how your reading experience will look with the current font size and line spacing settings.
           </Typography>
         </Box>
+
+        <Box sx={{ mt: 2, p: 2, bgcolor: 'info.light', borderRadius: 1 }}>
+          <Typography variant="body2" color="info.contrastText">
+            <strong>Keyboard shortcuts:</strong><br />
+            • Arrow keys or H/L: Navigate chapters<br />
+            • Escape: Return to library
+          </Typography>
+        </Box>
       </Drawer>
+
+      {/* Error notification */}
+      <Snackbar
+        open={!!state.error}
+        autoHideDuration={6000}
+        onClose={() => setState(prev => ({ ...prev, error: null }))}
+      >
+        <Alert severity="error" onClose={() => setState(prev => ({ ...prev, error: null }))}>
+          {state.error}
+        </Alert>
+      </Snackbar>
     </Box>
   )
 }

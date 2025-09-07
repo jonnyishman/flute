@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import {
   AppBar,
   Toolbar,
@@ -11,35 +10,17 @@ import {
   Add,
   MenuBook,
 } from '@mui/icons-material'
+import { BrowserRouter as Router, Routes, Route, useNavigate } from 'react-router-dom'
 import BooksLandingPage from './components/BooksLandingPage'
 import BookReader from './components/BookReader'
 import PWABadge from './PWABadge.tsx'
 import { Book } from './types/book'
 
-function App() {
-  const [currentView, setCurrentView] = useState<'library' | 'reader'>('library')
-  const [selectedBook, setSelectedBook] = useState<Book | null>(null)
-  const [selectedChapter, setSelectedChapter] = useState<number>(1)
+function LibraryPage() {
+  const navigate = useNavigate()
 
   const handleBookClick = (book: Book) => {
-    setSelectedBook(book)
-    setSelectedChapter(book.lastReadChapter)
-    setCurrentView('reader')
-  }
-
-  const handleBackToLibrary = () => {
-    setCurrentView('library')
-    setSelectedBook(null)
-  }
-
-  if (currentView === 'reader' && selectedBook) {
-    return (
-      <BookReader 
-        book={selectedBook}
-        chapter={selectedChapter}
-        onBackToLibrary={handleBackToLibrary}
-      />
-    )
+    navigate(`/book/${book.id}/chapter/${book.lastReadChapter}`)
   }
 
   return (
@@ -72,6 +53,17 @@ function App() {
         <Add />
       </Fab>
     </Box>
+  )
+}
+
+function App() {
+  return (
+    <Router>
+      <Routes>
+        <Route path="/" element={<LibraryPage />} />
+        <Route path="/book/:bookId/chapter/:chapterId" element={<BookReader />} />
+      </Routes>
+    </Router>
   )
 }
 
