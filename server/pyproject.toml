@@ -38,6 +38,8 @@ dev = [
 ]
 
 [tool.setuptools_scm]
+root = ".."
+fallback_version = "0.1.0.dev0"
 
 [tool.ruff]
 target-version = "py312"
