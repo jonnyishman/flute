@@ -27,7 +27,7 @@ def get_users():
     """Get all users."""
     users = User.query.all()
     return jsonify([
-        UserResponse.model_validate(user).model_dump() 
+        UserResponse.model_validate(user).model_dump()
         for user in users
     ])
 
@@ -62,11 +62,11 @@ def create_user(body: UserCreate):
 def update_user(user_id: int, body: UserUpdate):
     """Update an existing user."""
     user = User.query.get_or_404(user_id)
-    
+
     # Update only provided fields
     for field, value in body.model_dump(exclude_unset=True).items():
         setattr(user, field, value)
-    
+
     try:
         user.save()
         return jsonify(UserResponse.model_validate(user).model_dump())
@@ -130,10 +130,10 @@ def create_book(body: BookCreate):
 def create_chapter(book_id: int, body: ChapterCreate):
     """Create a new chapter for a book."""
     book = Book.query.get_or_404(book_id)
-    
+
     # Check if chapter number already exists for this book
     existing_chapter = Chapter.query.filter_by(
-        book_id=book_id, 
+        book_id=book_id,
         chapter_number=body.chapter_number
     ).first()
 
@@ -143,7 +143,7 @@ def create_chapter(book_id: int, body: ChapterCreate):
     try:
         # Calculate word count
         word_count = len(body.content.split())
-        
+
         chapter = Chapter(
             book_id=book_id,
             chapter_number=body.chapter_number,
@@ -167,10 +167,10 @@ def create_chapter(book_id: int, body: ChapterCreate):
 def get_chapter(book_id: int, chapter_number: int):
     """Get a specific chapter by book ID and chapter number."""
     chapter = Chapter.query.filter_by(
-        book_id=book_id, 
+        book_id=book_id,
         chapter_number=chapter_number
     ).first_or_404()
-    
+
     return jsonify(ChapterResponse.model_validate(chapter).model_dump())
 
 
