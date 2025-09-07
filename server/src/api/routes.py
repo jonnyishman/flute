@@ -1,7 +1,7 @@
 """API routes for the Flask application."""
 
 from typing import List
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify
 from flask_pydantic import validate
 from sqlalchemy.exc import IntegrityError
 
@@ -137,10 +137,10 @@ def create_chapter(book_id: int, body: ChapterCreate):
         book_id=book_id, 
         chapter_number=body.chapter_number
     ).first()
-    
+
     if existing_chapter:
         return jsonify({"error": "Chapter number already exists for this book"}), 400
-    
+
     try:
         # Calculate word count
         word_count = len(body.content.split())
@@ -157,7 +157,7 @@ def create_chapter(book_id: int, body: ChapterCreate):
         # Update book's total chapters
         book.total_chapters = Chapter.query.filter_by(book_id=book_id).count()
         book.save()
-        
+
         return jsonify(ChapterResponse.model_validate(chapter).model_dump()), 201
     except IntegrityError:
         db.session.rollback()

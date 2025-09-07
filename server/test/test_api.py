@@ -78,20 +78,20 @@ class TestUserEndpoints:
         """Test getting a user that doesn't exist."""
         response = client.get("/api/users/999")
         assert response.status_code == 404
-        
+
         data = json.loads(response.data)
         assert "error" in data
-    
+
     def test_create_user_missing_email(self, client):
         """Test creating a user without required email field."""
         user_data = {
             "username": "testuser"
         }
-        
+
         response = client.post(
             "/api/users",
             data=json.dumps(user_data),
             content_type="application/json"
         )
-        
+
         assert response.status_code == 400
