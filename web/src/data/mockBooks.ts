@@ -38,6 +38,9 @@ const generateDummyBooks = (startId: number, count: number): Book[] => {
     const learningWords = Math.floor(Math.random() * 3000)
     const knownWords = Math.max(0, wordsRead - unknownWords - learningWords)
     
+    const totalChapters = Math.floor(Math.random() * 30) + 10 // 10-40 chapters
+    const lastReadChapter = Math.floor(readProgress * totalChapters) + 1
+    
     return {
       id: `book-${id}`,
       title: bookTitles[i % bookTitles.length],
@@ -48,6 +51,8 @@ const generateDummyBooks = (startId: number, count: number): Book[] => {
       knownWords,
       lastReadDate: new Date(Date.now() - Math.floor(Math.random() * 30 * 24 * 60 * 60 * 1000)).toISOString(), // Random date within last 30 days
       readProgressRatio: readProgress,
+      lastReadChapter,
+      totalChapters,
     }
   })
 }

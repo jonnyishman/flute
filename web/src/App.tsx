@@ -10,10 +10,19 @@ import {
   Add,
   MenuBook,
 } from '@mui/icons-material'
+import { BrowserRouter as Router, Routes, Route, useNavigate } from 'react-router-dom'
 import BooksLandingPage from './components/BooksLandingPage'
+import BookReader from './components/BookReader'
 import PWABadge from './PWABadge.tsx'
+import { Book } from './types/book'
 
-function App() {
+function LibraryPage() {
+  const navigate = useNavigate()
+
+  const handleBookClick = (book: Book) => {
+    navigate(`/book/${book.id}/chapter/${book.lastReadChapter}`)
+  }
+
   return (
     <Box sx={{ flexGrow: 1, minHeight: '100vh', bgcolor: 'background.default' }}>
       <AppBar position="static">
@@ -27,7 +36,7 @@ function App() {
         </Toolbar>
       </AppBar>
 
-      <BooksLandingPage />
+      <BooksLandingPage onBookClick={handleBookClick} />
 
       <PWABadge />
 
@@ -44,6 +53,17 @@ function App() {
         <Add />
       </Fab>
     </Box>
+  )
+}
+
+function App() {
+  return (
+    <Router>
+      <Routes>
+        <Route path="/" element={<LibraryPage />} />
+        <Route path="/book/:bookId/chapter/:chapterId" element={<BookReader />} />
+      </Routes>
+    </Router>
   )
 }
 
