@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react'
 import {
   Container,
   Grid2 as Grid,
@@ -7,50 +7,50 @@ import {
   CircularProgress,
   Alert,
   Skeleton,
-} from '@mui/material';
-import { Book } from '../types/book';
-import { fetchBooks } from '../data/mockBooks';
-import BookTile from './BookTile';
+} from '@mui/material'
+import { Book } from '../types/book'
+import { fetchBooks } from '../data/mockBooks'
+import BookTile from './BookTile'
 
 const BooksLandingPage = () => {
-  const [books, setBooks] = useState<Book[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [hasMore, setHasMore] = useState(true);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [totalCount, setTotalCount] = useState(0);
+  const [books, setBooks] = useState<Book[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [hasMore, setHasMore] = useState(true)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalCount, setTotalCount] = useState(0)
 
   // Function to load more books
   const loadBooks = useCallback(async (page: number, reset: boolean = false) => {
-    if (loading) return;
+    if (loading) return
     
-    setLoading(true);
-    setError(null);
+    setLoading(true)
+    setError(null)
 
     try {
-      const response = await fetchBooks(page);
+      const response = await fetchBooks(page)
       
       if (reset) {
-        setBooks(response.books);
+        setBooks(response.books)
       } else {
-        setBooks(prev => [...prev, ...response.books]);
+        setBooks(prev => [...prev, ...response.books])
       }
       
-      setHasMore(response.hasMore);
-      setTotalCount(response.totalCount);
-      setCurrentPage(page);
+      setHasMore(response.hasMore)
+      setTotalCount(response.totalCount)
+      setCurrentPage(page)
     } catch (err) {
-      setError('Failed to load books. Please try again.');
-      console.error('Error loading books:', err);
+      setError('Failed to load books. Please try again.')
+      console.error('Error loading books:', err)
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  }, [loading]);
+  }, [loading])
 
   // Initial load
   useEffect(() => {
-    loadBooks(1, true);
-  }, []);
+    loadBooks(1, true)
+  }, [])
 
   // Endless scroll implementation
   useEffect(() => {
@@ -61,13 +61,13 @@ const BooksLandingPage = () => {
         && hasMore
         && !loading
       ) {
-        loadBooks(currentPage + 1);
+        loadBooks(currentPage + 1)
       }
-    };
+    }
 
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, [hasMore, loading, currentPage, loadBooks]);
+    window.addEventListener('scroll', handleScroll)
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [hasMore, loading, currentPage, loadBooks])
 
   // Skeleton loader for initial load
   const renderSkeletons = () => (
@@ -89,7 +89,7 @@ const BooksLandingPage = () => {
         </Grid>
       ))}
     </Grid>
-  );
+  )
 
   return (
     <Container maxWidth="xl" sx={{ py: 4 }}>
@@ -151,7 +151,7 @@ const BooksLandingPage = () => {
         </Box>
       )}
     </Container>
-  );
-};
+  )
+}
 
-export default BooksLandingPage;
+export default BooksLandingPage
