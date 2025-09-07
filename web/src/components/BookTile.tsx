@@ -8,47 +8,47 @@ import {
   Chip,
   Avatar,
   Stack,
-} from '@mui/material';
+} from '@mui/material'
 import {
   Schedule,
   Book as BookIcon,
   TrendingUp,
-} from '@mui/icons-material';
-import { Book } from '../types/book';
+} from '@mui/icons-material'
+import { Book } from '../types/book'
 
 interface BookTileProps {
-  book: Book;
+  book: Book
 }
 
 const BookTile = ({ book }: BookTileProps) => {
   const formatNumber = (num: number): string => {
     if (num >= 1000) {
-      return `${(num / 1000).toFixed(1)}k`;
+      return `${(num / 1000).toFixed(1)}k`
     }
-    return num.toString();
-  };
+    return num.toString()
+  }
 
   const formatDate = (dateString: string): string => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffTime = Math.abs(now.getTime() - date.getTime());
-    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    const date = new Date(dateString)
+    const now = new Date()
+    const diffTime = Math.abs(now.getTime() - date.getTime())
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24))
     
     if (diffDays === 0) {
-      return 'Today';
+      return 'Today'
     } else if (diffDays === 1) {
-      return 'Yesterday';
+      return 'Yesterday'
     } else if (diffDays < 7) {
-      return `${diffDays} days ago`;
+      return `${diffDays} days ago`
     } else if (diffDays < 30) {
-      const weeks = Math.floor(diffDays / 7);
-      return `${weeks} week${weeks > 1 ? 's' : ''} ago`;
+      const weeks = Math.floor(diffDays / 7)
+      return `${weeks} week${weeks > 1 ? 's' : ''} ago`
     } else {
-      return date.toLocaleDateString();
+      return date.toLocaleDateString()
     }
-  };
+  }
 
-  const progressPercentage = Math.round(book.readProgressRatio * 100);
+  const progressPercentage = Math.round(book.readProgressRatio * 100)
 
   return (
     <Card
@@ -155,7 +155,7 @@ const BookTile = ({ book }: BookTileProps) => {
         </Box>
       </CardContent>
     </Card>
-  );
-};
+  )
+}
 
-export default BookTile;
+export default BookTile
