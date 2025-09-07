@@ -1,6 +1,7 @@
 """Pydantic schemas for request/response validation."""
 
-from typing import Optional
+from typing import Optional, List
+from datetime import datetime
 from pydantic import BaseModel, Field, EmailStr
 
 
@@ -37,3 +38,57 @@ class UserResponse(BaseModel):
     class Config:
         """Pydantic configuration."""
         from_attributes = True
+
+
+# Book and Chapter schemas
+class ChapterResponse(BaseModel):
+    """Schema for chapter response data."""
+    
+    id: int
+    chapter_number: int
+    title: Optional[str] = None
+    content: str
+    word_count: int
+    
+    class Config:
+        """Pydantic configuration."""
+        from_attributes = True
+
+
+class BookResponse(BaseModel):
+    """Schema for book response data."""
+    
+    id: int
+    title: str
+    author: str
+    description: Optional[str] = None
+    cover_image_url: Optional[str] = None
+    total_chapters: int
+    created_at: datetime
+    
+    class Config:
+        """Pydantic configuration."""
+        from_attributes = True
+
+
+class BookWithChaptersResponse(BookResponse):
+    """Schema for book response data with chapters included."""
+    
+    chapters: List[ChapterResponse] = []
+
+
+class BookCreate(BaseModel):
+    """Schema for creating a new book."""
+    
+    title: str = Field(..., min_length=1, max_length=200)
+    author: str = Field(..., min_length=1, max_length=100)
+    description: Optional[str] = None
+    cover_image_url: Optional[str] = None
+
+
+class ChapterCreate(BaseModel):
+    """Schema for creating a new chapter."""
+    
+    chapter_number: int = Field(..., ge=1)
+    title: Optional[str] = Field(None, max_length=200)
+    content: str = Field(..., min_length=1)

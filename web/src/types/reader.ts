@@ -1,7 +1,21 @@
-export interface BookPage {
-  pageNumber: number
+// Chapter-based structure
+export interface Chapter {
+  id: number
+  chapter_number: number
+  title?: string
   content: string
-  wordCount: number
+  word_count: number
+}
+
+export interface Book {
+  id: number
+  title: string
+  author: string
+  description?: string
+  cover_image_url?: string
+  total_chapters: number
+  created_at: string
+  chapters?: Chapter[]
 }
 
 export interface ReaderSettings {
@@ -11,7 +25,15 @@ export interface ReaderSettings {
 
 export interface ReadingProgress {
   bookId: string
-  currentPage: number
-  totalPages: number
+  currentChapter: number
+  totalChapters: number
+  scrollPosition: number // For desktop vertical scrolling
   lastReadDate: string
+}
+
+// Legacy interfaces for backward compatibility during transition
+export interface BookPage {
+  pageNumber: number
+  content: string
+  wordCount: number
 }

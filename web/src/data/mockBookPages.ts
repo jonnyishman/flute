@@ -1,4 +1,9 @@
+// This file is deprecated - use bookApi.ts instead
+// Kept for backward compatibility
+
 import { BookPage } from '../types/reader'
+
+console.warn('mockBookPages.ts is deprecated. Please use bookApi.ts instead.')
 
 // Sample book content for different pages
 const sampleTexts = [

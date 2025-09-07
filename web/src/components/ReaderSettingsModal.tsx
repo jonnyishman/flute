@@ -11,6 +11,8 @@ import {
   Divider,
 } from '@mui/material'
 import { ReaderSettings } from '../types/reader'
+import { useDebounce } from '../hooks/useDebounce'
+import { SETTINGS_PREVIEW_DEBOUNCE, MIN_FONT_SIZE, MAX_FONT_SIZE, MIN_LINE_SPACING, MAX_LINE_SPACING } from '../constants/reader'
 
 interface ReaderSettingsModalProps {
   open: boolean
@@ -21,6 +23,9 @@ interface ReaderSettingsModalProps {
 
 const ReaderSettingsModal = ({ open, onClose, settings, onSettingsChange }: ReaderSettingsModalProps) => {
   const [tempSettings, setTempSettings] = useState<ReaderSettings>(settings)
+  
+  // Debounce the preview settings to prevent excessive re-renders
+  const debouncedPreviewSettings = useDebounce(tempSettings, SETTINGS_PREVIEW_DEBOUNCE)
 
   useEffect(() => {
     setTempSettings(settings)
@@ -69,14 +74,14 @@ const ReaderSettingsModal = ({ open, onClose, settings, onSettingsChange }: Read
             <Slider
               value={tempSettings.fontSize}
               onChange={handleFontSizeChange}
-              min={12}
-              max={24}
+              min={MIN_FONT_SIZE}
+              max={MAX_FONT_SIZE}
               step={1}
               marks={[
-                { value: 12, label: '12px' },
+                { value: MIN_FONT_SIZE, label: `${MIN_FONT_SIZE}px` },
                 { value: 16, label: '16px' },
                 { value: 20, label: '20px' },
-                { value: 24, label: '24px' },
+                { value: MAX_FONT_SIZE, label: `${MAX_FONT_SIZE}px` },
               ]}
               valueLabelDisplay="auto"
               valueLabelFormat={(value) => `${value}px`}
@@ -96,14 +101,14 @@ const ReaderSettingsModal = ({ open, onClose, settings, onSettingsChange }: Read
             <Slider
               value={tempSettings.lineSpacing}
               onChange={handleLineSpacingChange}
-              min={1.0}
-              max={2.5}
+              min={MIN_LINE_SPACING}
+              max={MAX_LINE_SPACING}
               step={0.1}
               marks={[
-                { value: 1.0, label: 'Tight' },
+                { value: MIN_LINE_SPACING, label: 'Tight' },
                 { value: 1.5, label: 'Normal' },
                 { value: 2.0, label: 'Loose' },
-                { value: 2.5, label: 'Extra' },
+                { value: MAX_LINE_SPACING, label: 'Extra' },
               ]}
               valueLabelDisplay="auto"
               valueLabelFormat={(value) => `${value}x`}
@@ -117,8 +122,8 @@ const ReaderSettingsModal = ({ open, onClose, settings, onSettingsChange }: Read
             </Typography>
             <Typography 
               sx={{ 
-                fontSize: `${tempSettings.fontSize}px`,
-                lineHeight: tempSettings.lineSpacing,
+                fontSize: `${debouncedPreviewSettings.fontSize}px`,
+                lineHeight: debouncedPreviewSettings.lineSpacing,
                 mt: 1
               }}
             >
