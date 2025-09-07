@@ -1,3 +1,4 @@
+import { Routes, Route } from 'react-router-dom'
 import {
   AppBar,
   Toolbar,
@@ -11,6 +12,7 @@ import {
   MenuBook,
 } from '@mui/icons-material'
 import BooksLandingPage from './components/BooksLandingPage'
+import BookReaderPage from './components/BookReaderPage'
 import PWABadge from './PWABadge.tsx'
 
 function App() {
@@ -27,7 +29,10 @@ function App() {
         </Toolbar>
       </AppBar>
 
-      <BooksLandingPage />
+      <Routes>
+        <Route path="/" element={<BooksLandingPage />} />
+        <Route path="/read/:bookId" element={<BookReaderPage />} />
+      </Routes>
 
       <PWABadge />
 

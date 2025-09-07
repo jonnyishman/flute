@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom'
 import {
   Card,
   CardContent,
@@ -21,6 +22,12 @@ interface BookTileProps {
 }
 
 const BookTile = ({ book }: BookTileProps) => {
+  const navigate = useNavigate()
+
+  const handleClick = () => {
+    navigate(`/read/${book.id}`)
+  }
+
   const formatNumber = (num: number): string => {
     if (num >= 1000) {
       return `${(num / 1000).toFixed(1)}k`
@@ -52,10 +59,12 @@ const BookTile = ({ book }: BookTileProps) => {
 
   return (
     <Card
+      onClick={handleClick}
       sx={{
         height: '100%',
         display: 'flex',
         flexDirection: 'column',
+        cursor: 'pointer',
         transition: 'transform 0.2s, box-shadow 0.2s',
         '&:hover': {
           transform: 'translateY(-4px)',
