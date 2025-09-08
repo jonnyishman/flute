@@ -57,21 +57,29 @@ const BooksLandingPage = ({ onBookClick }: BooksLandingPageProps) => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Endless scroll implementation
+  // Endless scroll implementation with throttling
   useEffect(() => {
+    let timeoutId: NodeJS.Timeout
+
     const handleScroll = () => {
-      if (
-        window.innerHeight + document.documentElement.scrollTop
-        >= document.documentElement.offsetHeight - 1000 // Load more when 1000px from bottom
-        && hasMore
-        && !loading
-      ) {
-        loadBooks(currentPage + 1)
-      }
+      clearTimeout(timeoutId)
+      timeoutId = setTimeout(() => {
+        if (
+          window.innerHeight + document.documentElement.scrollTop
+          >= document.documentElement.offsetHeight - 1000 // Load more when 1000px from bottom
+          && hasMore
+          && !loading
+        ) {
+          loadBooks(currentPage + 1)
+        }
+      }, 100) // Throttle scroll events to fire at most every 100ms
     }
 
     window.addEventListener('scroll', handleScroll)
-    return () => window.removeEventListener('scroll', handleScroll)
+    return () => {
+      window.removeEventListener('scroll', handleScroll)
+      clearTimeout(timeoutId)
+    }
   }, [hasMore, loading, currentPage, loadBooks])
 
   // Skeleton loader for initial load
