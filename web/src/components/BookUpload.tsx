@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react'
+import React, { useState, useRef, useCallback } from 'react'
 import {
   Box,
   Paper,
@@ -12,7 +12,6 @@ import {
   AppBar,
   Toolbar,
   IconButton,
-  Fab,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -20,19 +19,46 @@ import {
   Card,
   CardContent,
   ButtonGroup,
+  CircularProgress,
+  Alert,
 } from '@mui/material'
 import {
   ArrowBack,
   CloudUpload,
   ContentPaste,
-  Image as ImageIcon,
 } from '@mui/icons-material'
 import { useNavigate } from 'react-router-dom'
+
+// Constants
+const RENDER_OPTIONS = ['Standard', 'Markdown', 'HTML'] as const
+const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
+const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'] as const
+const MAX_IMAGE_DIMENSION = 1200 // pixels
+
+// Types
+interface BookFormData {
+  title: string
+  source: string
+  contents: string
+  renderOption: typeof RENDER_OPTIONS[number]
+}
+
+type LoadingState = {
+  fileUpload: boolean
+  clipboardPaste: boolean
+  imageProcessing: boolean
+}
+
+type ErrorState = {
+  fileUpload: string | null
+  clipboardPaste: string | null
+  general: string | null
+}
 
 export default function BookUpload() {
   const navigate = useNavigate()
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<BookFormData>({
     title: '',
     source: '',
     contents: '',
@@ -40,53 +66,187 @@ export default function BookUpload() {
   })
   const [coverArt, setCoverArt] = useState<string>('')
   const [showSuccess, setShowSuccess] = useState(false)
+  const [loading, setLoading] = useState<LoadingState>({
+    fileUpload: false,
+    clipboardPaste: false,
+    imageProcessing: false,
+  })
+  const [errors, setErrors] = useState<ErrorState>({
+    fileUpload: null,
+    clipboardPaste: null,
+    general: null,
+  })
 
-  const handleInputChange = (field: string, value: string) => {
+  const handleInputChange = useCallback((field: keyof BookFormData, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }))
-  }
+    // Clear general errors when user makes changes
+    if (errors.general) {
+      setErrors(prev => ({ ...prev, general: null }))
+    }
+  }, [errors.general])
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (file && file.type.startsWith('image/')) {
+  const processImageFile = useCallback(async (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      // Validate file type
+      if (!ACCEPTED_IMAGE_TYPES.some(type => file.type === `image/${type.split('/')[1]}`)) {
+        reject(new Error(`Unsupported file type. Accepted types: ${ACCEPTED_IMAGE_TYPES.join(', ')}`)) 
+        return
+      }
+
+      // Validate file size
+      if (file.size > MAX_FILE_SIZE) {
+        reject(new Error(`File too large. Maximum size: ${Math.round(MAX_FILE_SIZE / (1024 * 1024))}MB`))
+        return
+      }
+
       const reader = new FileReader()
       reader.onload = (e) => {
-        setCoverArt(e.target?.result as string)
-      }
-      reader.readAsDataURL(file)
-    }
-  }
+        const result = e.target?.result as string
+        if (result) {
+          // Create an image element to get dimensions and potentially resize
+          const img = new Image()
+          img.onload = () => {
+            // Check if we need to resize
+            if (img.width > MAX_IMAGE_DIMENSION || img.height > MAX_IMAGE_DIMENSION) {
+              const canvas = document.createElement('canvas')
+              const ctx = canvas.getContext('2d')
+              if (!ctx) {
+                reject(new Error('Cannot process image'))
+                return
+              }
 
-  const handlePasteImage = async () => {
+              // Calculate new dimensions maintaining aspect ratio
+              const ratio = Math.min(MAX_IMAGE_DIMENSION / img.width, MAX_IMAGE_DIMENSION / img.height)
+              canvas.width = img.width * ratio
+              canvas.height = img.height * ratio
+
+              // Draw resized image
+              ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+              const resizedDataUrl = canvas.toDataURL(file.type, 0.8)
+              resolve(resizedDataUrl)
+            } else {
+              resolve(result)
+            }
+          }
+          img.onerror = () => reject(new Error('Invalid image file'))
+          img.src = result
+        } else {
+          reject(new Error('Failed to read file'))
+        }
+      }
+      reader.onerror = () => reject(new Error('Failed to read file'))
+      reader.readAsDataURL(file)
+    })
+  }, [])
+
+  const handleFileUpload = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    setLoading(prev => ({ ...prev, fileUpload: true, imageProcessing: true }))
+    setErrors(prev => ({ ...prev, fileUpload: null }))
+
+    try {
+      const processedImage = await processImageFile(file)
+      setCoverArt(processedImage)
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to process image'
+      setErrors(prev => ({ ...prev, fileUpload: errorMessage }))
+    } finally {
+      setLoading(prev => ({ ...prev, fileUpload: false, imageProcessing: false }))
+      // Clear the input so the same file can be selected again
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
+    }
+  }, [processImageFile])
+
+  const isClipboardAPISupported = useCallback(() => {
+    return (
+      typeof navigator !== 'undefined' &&
+      'clipboard' in navigator &&
+      'read' in navigator.clipboard &&
+      window.isSecureContext
+    )
+  }, [])
+
+  const handlePasteImage = useCallback(async () => {
+    if (!isClipboardAPISupported()) {
+      setErrors(prev => ({
+        ...prev,
+        clipboardPaste: 'Clipboard API not supported in this browser or context'
+      }))
+      return
+    }
+
+    setLoading(prev => ({ ...prev, clipboardPaste: true, imageProcessing: true }))
+    setErrors(prev => ({ ...prev, clipboardPaste: null }))
+
     try {
       const clipboardItems = await navigator.clipboard.read()
+      let imageFound = false
+
       for (const clipboardItem of clipboardItems) {
         for (const type of clipboardItem.types) {
           if (type.startsWith('image/')) {
+            imageFound = true
             const blob = await clipboardItem.getType(type)
-            const reader = new FileReader()
-            reader.onload = (e) => {
-              setCoverArt(e.target?.result as string)
-            }
-            reader.readAsDataURL(blob)
+            const file = new File([blob], `pasted-image.${type.split('/')[1]}`, { type })
+            
+            const processedImage = await processImageFile(file)
+            setCoverArt(processedImage)
             return
           }
         }
       }
-    } catch (err) {
-      // Clipboard API might not be available or permission denied
-      console.log('Unable to access clipboard:', err)
-    }
-  }
 
-  const handleImport = () => {
+      if (!imageFound) {
+        setErrors(prev => ({ ...prev, clipboardPaste: 'No image found in clipboard' }))
+      }
+    } catch (error) {
+      let errorMessage = 'Failed to paste image from clipboard'
+      
+      if (error instanceof Error) {
+        if (error.name === 'NotAllowedError') {
+          errorMessage = 'Clipboard access denied. Please grant permission.'
+        } else if (error.name === 'NotFoundError') {
+          errorMessage = 'No image found in clipboard'
+        } else {
+          errorMessage = error.message
+        }
+      }
+      
+      setErrors(prev => ({ ...prev, clipboardPaste: errorMessage }))
+    } finally {
+      setLoading(prev => ({ ...prev, clipboardPaste: false, imageProcessing: false }))
+    }
+  }, [isClipboardAPISupported, processImageFile])
+
+  const handleImport = useCallback(() => {
+    // Basic validation
+    if (!formData.title.trim()) {
+      setErrors(prev => ({ ...prev, general: 'Title is required' }))
+      return
+    }
+    if (!formData.contents.trim()) {
+      setErrors(prev => ({ ...prev, general: 'Contents are required' }))
+      return
+    }
+
     // Since this is a prototype, just show success message
     setShowSuccess(true)
-  }
+  }, [formData.title, formData.contents])
 
-  const handleSuccessClose = () => {
+  const handleSuccessClose = useCallback(() => {
     setShowSuccess(false)
     navigate('/')
-  }
+  }, [navigate])
+
+  const clearError = useCallback((errorType: keyof ErrorState) => {
+    setErrors(prev => ({ ...prev, [errorType]: null }))
+  }, [])
+
+  const isFormValid = formData.title.trim() && formData.contents.trim()
 
   return (
     <Box sx={{ flexGrow: 1, minHeight: '100vh', bgcolor: 'background.default' }}>
@@ -97,6 +257,7 @@ export default function BookUpload() {
             color="inherit"
             onClick={() => navigate('/')}
             sx={{ mr: 2 }}
+            aria-label="Go back to home"
           >
             <ArrowBack />
           </IconButton>
@@ -121,6 +282,11 @@ export default function BookUpload() {
               onChange={(e) => handleInputChange('title', e.target.value)}
               sx={{ mb: 3 }}
               required
+              inputProps={{
+                'aria-describedby': 'title-helper-text',
+              }}
+              helperText="Enter the title of the book"
+              id="title-helper-text"
             />
 
             {/* Source/Author Field */}
@@ -130,6 +296,11 @@ export default function BookUpload() {
               value={formData.source}
               onChange={(e) => handleInputChange('source', e.target.value)}
               sx={{ mb: 3 }}
+              inputProps={{
+                'aria-describedby': 'source-helper-text',
+              }}
+              helperText="Enter the author or source of the book"
+              id="source-helper-text"
             />
 
             {/* Contents Field */}
@@ -142,6 +313,11 @@ export default function BookUpload() {
               onChange={(e) => handleInputChange('contents', e.target.value)}
               sx={{ mb: 3 }}
               required
+              inputProps={{
+                'aria-describedby': 'contents-helper-text',
+              }}
+              helperText="Enter the full text content of the book"
+              id="contents-helper-text"
             />
 
             {/* Cover Art Section */}
@@ -152,33 +328,68 @@ export default function BookUpload() {
               
               <ButtonGroup variant="outlined" sx={{ mb: 2 }}>
                 <Button
-                  startIcon={<CloudUpload />}
+                  startIcon={loading.fileUpload ? <CircularProgress size={16} /> : <CloudUpload />}
                   onClick={() => fileInputRef.current?.click()}
+                  disabled={loading.fileUpload || loading.imageProcessing}
+                  aria-label="Upload image file from computer"
                 >
-                  Upload Image
+                  {loading.fileUpload ? 'Uploading...' : 'Upload Image'}
                 </Button>
                 <Button
-                  startIcon={<ContentPaste />}
+                  startIcon={loading.clipboardPaste ? <CircularProgress size={16} /> : <ContentPaste />}
                   onClick={handlePasteImage}
+                  disabled={loading.clipboardPaste || loading.imageProcessing || !isClipboardAPISupported()}
+                  aria-label="Paste image from clipboard"
+                  title={!isClipboardAPISupported() ? 'Clipboard API not supported in this browser' : ''}
                 >
-                  Paste Image
+                  {loading.clipboardPaste ? 'Pasting...' : 'Paste Image'}
                 </Button>
               </ButtonGroup>
 
+              {/* Error Messages */}
+              {errors.fileUpload && (
+                <Alert 
+                  severity="error" 
+                  sx={{ mb: 2 }} 
+                  onClose={() => clearError('fileUpload')}
+                >
+                  {errors.fileUpload}
+                </Alert>
+              )}
+              {errors.clipboardPaste && (
+                <Alert 
+                  severity="error" 
+                  sx={{ mb: 2 }}
+                  onClose={() => clearError('clipboardPaste')}
+                >
+                  {errors.clipboardPaste}
+                </Alert>
+              )}
+
               <input
                 type="file"
-                accept="image/*"
+                accept={ACCEPTED_IMAGE_TYPES.map(type => `image/${type.split('/')[1]}`).join(',')}
                 ref={fileInputRef}
                 onChange={handleFileUpload}
                 style={{ display: 'none' }}
+                aria-label="File input for cover art"
               />
 
-              {coverArt && (
+              {loading.imageProcessing && (
+                <Box sx={{ display: 'flex', alignItems: 'center', mt: 2, mb: 2 }}>
+                  <CircularProgress size={24} sx={{ mr: 2 }} />
+                  <Typography variant="body2" color="text.secondary">
+                    Processing image...
+                  </Typography>
+                </Box>
+              )}
+
+              {coverArt && !loading.imageProcessing && (
                 <Card sx={{ maxWidth: 200, mt: 2 }}>
                   <CardContent>
                     <img
                       src={coverArt}
-                      alt="Cover preview"
+                      alt="Cover art preview - will be used as book cover"
                       style={{
                         width: '100%',
                         height: 'auto',
@@ -190,6 +401,7 @@ export default function BookUpload() {
                       size="small"
                       onClick={() => setCoverArt('')}
                       sx={{ mt: 1 }}
+                      aria-label="Remove cover art image"
                     >
                       Remove
                     </Button>
@@ -200,17 +412,35 @@ export default function BookUpload() {
 
             {/* Render Option */}
             <FormControl fullWidth sx={{ mb: 4 }}>
-              <InputLabel>Render Option</InputLabel>
+              <InputLabel id="render-option-label">Render Option</InputLabel>
               <Select
                 value={formData.renderOption}
                 label="Render Option"
-                onChange={(e) => handleInputChange('renderOption', e.target.value)}
+                onChange={(e) => handleInputChange('renderOption', e.target.value as typeof RENDER_OPTIONS[number])}
+                labelId="render-option-label"
+                aria-describedby="render-option-helper-text"
               >
-                <MenuItem value="Standard">Standard</MenuItem>
-                <MenuItem value="Markdown">Markdown</MenuItem>
-                <MenuItem value="HTML">HTML</MenuItem>
+                {RENDER_OPTIONS.map((option) => (
+                  <MenuItem key={option} value={option}>
+                    {option}
+                  </MenuItem>
+                ))}
               </Select>
+              <Typography variant="caption" color="text.secondary" id="render-option-helper-text">
+                Choose how the book content should be rendered
+              </Typography>
             </FormControl>
+
+            {/* General Error */}
+            {errors.general && (
+              <Alert 
+                severity="error" 
+                sx={{ mb: 3 }}
+                onClose={() => clearError('general')}
+              >
+                {errors.general}
+              </Alert>
+            )}
 
             {/* Import Button */}
             <Box sx={{ display: 'flex', justifyContent: 'center' }}>
@@ -218,8 +448,9 @@ export default function BookUpload() {
                 variant="contained"
                 size="large"
                 onClick={handleImport}
-                disabled={!formData.title || !formData.contents}
+                disabled={!isFormValid}
                 sx={{ px: 4 }}
+                aria-label="Import the book with entered details"
               >
                 Import Book
               </Button>
