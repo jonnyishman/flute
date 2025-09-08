@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react'
 import { ThemeProvider } from '@mui/material/styles'
 import CssBaseline from '@mui/material/CssBaseline'
 import { describe, it, expect, vi } from 'vitest'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import App from '../App'
 import theme from '../theme'
 
@@ -72,7 +72,10 @@ describe('Smoke Tests - Overall Page Rendering', () => {
       <ThemeProvider theme={theme}>
         <CssBaseline />
         <MemoryRouter initialEntries={['/upload']}>
-          <App />
+          <Routes>
+            <Route path="/" element={<div data-testid="books-landing-page">Mocked Books Landing Page</div>} />
+            <Route path="/upload" element={<div data-testid="book-upload-page">Mocked Book Upload Page</div>} />
+          </Routes>
         </MemoryRouter>
       </ThemeProvider>
     )

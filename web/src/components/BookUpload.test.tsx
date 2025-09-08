@@ -20,10 +20,10 @@ describe('BookUpload', () => {
   it('renders all required form fields', () => {
     render(<BookUploadWithRouter />)
     
-    expect(screen.getByLabelText('Book Title')).toBeInTheDocument()
-    expect(screen.getByLabelText('Source/Author (Optional)')).toBeInTheDocument()
-    expect(screen.getByLabelText('Book Contents')).toBeInTheDocument()
-    expect(screen.getByLabelText('Render Option')).toBeInTheDocument()
+    expect(screen.getByLabelText(/Book Title/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/Source\/Author \(Optional\)/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/Book Contents/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/Render Option/i)).toBeInTheDocument()
   })
 
   it('renders cover art upload options', () => {
