@@ -7,3 +7,5 @@ The structure for @test should reflect the same structure for code in @src, but 
 Python typing should be used for all function arguments and to specify the return types of functions. Imports that are used only for typing and not for runtime should be kept under an 'if TYPE_CHECKING:` block.
 
 After making changes linting and tests should be run for the changed files only. 
+
+When writing sql queries in src prefer the newer sqlalchemy core approach to query construction, rather than the older ORM approach where queries are hidden. 
