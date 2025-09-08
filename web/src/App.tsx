@@ -13,6 +13,7 @@ import {
 import { BrowserRouter as Router, Routes, Route, useNavigate } from 'react-router-dom'
 import BooksLandingPage from './components/BooksLandingPage'
 import BookReader from './components/BookReader'
+import BookUpload from './components/BookUpload'
 import PWABadge from './PWABadge.tsx'
 import { Book } from './types/book'
 import StoreProvider from './store/StoreProvider'
@@ -50,6 +51,7 @@ function LibraryPage() {
       <Fab
         color="primary"
         aria-label="add book"
+        onClick={() => navigate('/upload')}
         sx={{
           position: 'fixed',
           bottom: 16,
@@ -68,6 +70,7 @@ function App() {
       <Router>
         <Routes>
           <Route path="/" element={<LibraryPage />} />
+          <Route path="/upload" element={<BookUpload />} />
           <Route path="/book/:bookId/chapter/:chapterId" element={<BookReader />} />
         </Routes>
       </Router>
