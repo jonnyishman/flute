@@ -45,23 +45,38 @@ describe('BooksLandingPage Smoke Tests', () => {
     vi.clearAllMocks()
   })
 
-  it('renders without crashing', () => {
+  it('renders without crashing', async () => {
     renderComponent()
     expect(screen.getByText('Your Library')).toBeInTheDocument()
+    
+    // Wait for async operations to complete
+    await waitFor(() => {
+      expect(screen.getByText('Test Book')).toBeInTheDocument()
+    })
   })
 
-  it('shows loading state initially', () => {
+  it('shows loading state initially', async () => {
     renderComponent()
     
     // Should show loading text initially
     expect(screen.getByText('Loading your books...')).toBeInTheDocument()
+    
+    // Wait for loading to complete
+    await waitFor(() => {
+      expect(screen.getByText('1 books in your collection')).toBeInTheDocument()
+    })
   })
 
-  it('renders the page header', () => {
+  it('renders the page header', async () => {
     renderComponent()
     
     expect(screen.getByText('Your Library')).toBeInTheDocument()
     expect(screen.getByText('Loading your books...')).toBeInTheDocument()
+    
+    // Wait for async operations to complete
+    await waitFor(() => {
+      expect(screen.getByText('Test Book')).toBeInTheDocument()
+    })
   })
 
   it('loads and displays books after API call', async () => {

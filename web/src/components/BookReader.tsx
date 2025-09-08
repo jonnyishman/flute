@@ -11,7 +11,6 @@ import {
   Drawer,
   List,
   ListItem,
-  ListItemText,
   Slider,
   FormLabel,
   useTheme,
@@ -72,7 +71,7 @@ const generateChapterContent = (bookId: string, chapterNumber: number): string =
       "The market square bustled with activity as vendors called out their wares to passing customers.",
     ]
     
-    const content = Array.from({ length: paragraphs }, (_, index) => {
+    const content = Array.from({ length: paragraphs }, () => {
       const sentenceCount = Math.floor(Math.random() * 5) + 3 // 3-8 sentences per paragraph
       const paragraphSentences = Array.from({ length: sentenceCount }, () => 
         sentences[Math.floor(Math.random() * sentences.length)]
@@ -103,7 +102,7 @@ const BookReader = ({ book: propBook, chapter: propChapter, onBackToLibrary }: B
   // Jotai atoms
   const [readerSettings, setReaderSettings] = useAtom(readerSettingsAtom)
   const { 
-    getBookProgress, 
+    _, 
     updateBookProgress, 
     startReadingSession, 
     endReadingSession 
@@ -157,7 +156,7 @@ const BookReader = ({ book: propBook, chapter: propChapter, onBackToLibrary }: B
             loading: false,
             currentChapter: chapterId ? parseInt(chapterId, 10) : foundBook.lastReadChapter
           }))
-        } catch (error) {
+        } catch (_) {
           setState(prev => ({ ...prev, loading: false, error: 'Failed to load book' }))
         }
       }
@@ -170,7 +169,7 @@ const BookReader = ({ book: propBook, chapter: propChapter, onBackToLibrary }: B
   const memoizedChapterContent = useMemo(() => {
     if (!state.book) return ''
     return generateChapterContent(state.book.id, state.currentChapter)
-  }, [state.book?.id, state.currentChapter])
+  }, [state.book, state.currentChapter])
 
   // Load chapter content with transition effect
   useEffect(() => {

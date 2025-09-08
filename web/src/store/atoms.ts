@@ -44,35 +44,6 @@ const defaultReadingSession: ReadingSession = {
   startTime: null,
 }
 
-// Validation functions
-export const validateReaderSettings = (settings: any): ReaderSettings => {
-  if (!settings || typeof settings !== 'object') {
-    return defaultReaderSettings
-  }
-  
-  const fontSize = typeof settings.fontSize === 'number' && settings.fontSize >= 12 && settings.fontSize <= 24
-    ? settings.fontSize : defaultReaderSettings.fontSize
-  const lineSpacing = typeof settings.lineSpacing === 'number' && settings.lineSpacing >= 1.2 && settings.lineSpacing <= 2.5
-    ? settings.lineSpacing : defaultReaderSettings.lineSpacing
-    
-  return { fontSize, lineSpacing }
-}
-
-export const validateUserPreferences = (preferences: any): UserPreferences => {
-  if (!preferences || typeof preferences !== 'object') {
-    return defaultUserPreferences
-  }
-  
-  const theme = ['light', 'dark', 'auto'].includes(preferences.theme) 
-    ? preferences.theme : defaultUserPreferences.theme
-  const preferredPageSize = typeof preferences.preferredPageSize === 'number' && preferences.preferredPageSize > 0
-    ? preferences.preferredPageSize : defaultUserPreferences.preferredPageSize
-  const enableHapticFeedback = typeof preferences.enableHapticFeedback === 'boolean'
-    ? preferences.enableHapticFeedback : defaultUserPreferences.enableHapticFeedback
-    
-  return { theme, preferredPageSize, enableHapticFeedback }
-}
-
 // Persistent storage atoms using atomWithStorage for localStorage integration
 export const readerSettingsAtom = atomWithStorage<ReaderSettings>(
   'flute-reader-settings',

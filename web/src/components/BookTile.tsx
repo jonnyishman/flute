@@ -12,7 +12,6 @@ import {
 import {
   Schedule,
   Book as BookIcon,
-  TrendingUp,
 } from '@mui/icons-material'
 import { Book } from '../types/book'
 

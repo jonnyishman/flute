@@ -2,14 +2,8 @@ import { render } from '@testing-library/react'
 import { describe, it, expect, vi } from 'vitest'
 import PWABadge from './PWABadge'
 
-// Mock the workbox-window module
-vi.mock('workbox-window', () => ({
-  Workbox: vi.fn(() => ({
-    register: vi.fn(),
-    addEventListener: vi.fn(),
-    messageSkipWaiting: vi.fn()
-  }))
-}))
+// Mock the CSS import
+vi.mock('./PWABadge.css', () => ({}))
 
 describe('PWABadge Smoke Tests', () => {
   it('renders without crashing', () => {
