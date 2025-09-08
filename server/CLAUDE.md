@@ -8,4 +8,6 @@ Python typing should be used for all function arguments and to specify the retur
 
 After making changes linting and tests should be run for the changed files only. 
 
-When writing sql queries in src prefer the newer sqlalchemy core approach to query construction, rather than the older ORM approach where queries are hidden. 
+When writing sql queries in src use the sqlalchemy core approach to query construction, rather than the ORM approach where queries are hidden. 
+
+All python modules must end in a newline.
