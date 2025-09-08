@@ -15,12 +15,18 @@ import BooksLandingPage from './components/BooksLandingPage'
 import BookReader from './components/BookReader'
 import PWABadge from './PWABadge.tsx'
 import { Book } from './types/book'
+import StoreProvider from './store/StoreProvider'
+import useBookProgress from './hooks/useBookProgress'
 
 function LibraryPage() {
   const navigate = useNavigate()
+  const { getBookProgress } = useBookProgress()
 
   const handleBookClick = (book: Book) => {
-    navigate(`/book/${book.id}/chapter/${book.lastReadChapter}`)
+    // Use stored progress if available, otherwise use book's default
+    const progress = getBookProgress(book.id)
+    const lastChapter = progress?.lastChapter ?? book.lastReadChapter
+    navigate(`/book/${book.id}/chapter/${lastChapter}`)
   }
 
   return (
@@ -58,12 +64,14 @@ function LibraryPage() {
 
 function App() {
   return (
-    <Router>
-      <Routes>
-        <Route path="/" element={<LibraryPage />} />
-        <Route path="/book/:bookId/chapter/:chapterId" element={<BookReader />} />
-      </Routes>
-    </Router>
+    <StoreProvider>
+      <Router>
+        <Routes>
+          <Route path="/" element={<LibraryPage />} />
+          <Route path="/book/:bookId/chapter/:chapterId" element={<BookReader />} />
+        </Routes>
+      </Router>
+    </StoreProvider>
   )
 }
 

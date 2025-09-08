@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import { useAtom } from 'jotai'
 import {
   Box,
   AppBar,
@@ -29,6 +30,8 @@ import {
 } from '@mui/icons-material'
 import { fetchBooks } from '../data/mockBooks'
 import { Book } from '../types/book'
+import { readerSettingsAtom, ReaderSettings } from '../store/atoms'
+import useBookProgress from '../hooks/useBookProgress'
 
 interface BookReaderProps {
   book?: Book
@@ -36,10 +39,6 @@ interface BookReaderProps {
   onBackToLibrary?: () => void
 }
 
-interface ReaderSettings {
-  readonly fontSize: number
-  readonly lineSpacing: number
-}
 
 interface BookReaderState {
   book: Book | null
@@ -48,42 +47,9 @@ interface BookReaderState {
   chapterContent: string
   settingsOpen: boolean
   currentChapter: number
-  settings: ReaderSettings
   showTransition: boolean
 }
 
-// Validation schemas
-const validateSettings = (settings: any): ReaderSettings => {
-  if (!settings || typeof settings !== 'object') {
-    throw new Error('Invalid settings format')
-  }
-  
-  const fontSize = typeof settings.fontSize === 'number' && settings.fontSize >= 12 && settings.fontSize <= 24
-    ? settings.fontSize : 16
-  const lineSpacing = typeof settings.lineSpacing === 'number' && settings.lineSpacing >= 1.2 && settings.lineSpacing <= 2.5
-    ? settings.lineSpacing : 1.6
-    
-  return { fontSize, lineSpacing }
-}
-
-// Safe localStorage operations
-const safeLocalStorage = {
-  getItem: (key: string): string | null => {
-    try {
-      return localStorage.getItem(key)
-    } catch (error) {
-      console.warn('Failed to read from localStorage:', error)
-      return null
-    }
-  },
-  setItem: (key: string, value: string): void => {
-    try {
-      localStorage.setItem(key, value)
-    } catch (error) {
-      console.warn('Failed to write to localStorage:', error)
-    }
-  }
-}
 
 // Mock chapter content generation with error handling
 const generateChapterContent = (bookId: string, chapterNumber: number): string => {
@@ -134,6 +100,15 @@ const BookReader = ({ book: propBook, chapter: propChapter, onBackToLibrary }: B
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
   
+  // Jotai atoms
+  const [readerSettings, setReaderSettings] = useAtom(readerSettingsAtom)
+  const { 
+    getBookProgress, 
+    updateBookProgress, 
+    startReadingSession, 
+    endReadingSession 
+  } = useBookProgress()
+  
   // Refs for touch handling
   const touchStartRef = useRef<{ x: number; time: number } | null>(null)
   const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null)
@@ -145,29 +120,22 @@ const BookReader = ({ book: propBook, chapter: propChapter, onBackToLibrary }: B
     chapterContent: '',
     settingsOpen: false,
     currentChapter: propChapter || (propBook?.lastReadChapter ?? 1),
-    settings: { fontSize: 16, lineSpacing: 1.6 },
     showTransition: false,
   })
 
-  // Load settings from localStorage with validation
+  // Start reading session when book and chapter are loaded
   useEffect(() => {
-    const saved = safeLocalStorage.getItem('flute-reader-settings')
-    if (saved) {
-      try {
-        const parsedSettings = JSON.parse(saved)
-        const validatedSettings = validateSettings(parsedSettings)
-        setState(prev => ({ ...prev, settings: validatedSettings }))
-      } catch (error) {
-        console.warn('Failed to parse saved settings, using defaults:', error)
-        setState(prev => ({ ...prev, error: 'Settings corrupted, using defaults' }))
-      }
+    if (state.book && !state.loading) {
+      startReadingSession(state.book.id, state.currentChapter)
     }
-  }, [])
+  }, [state.book, state.currentChapter, state.loading, startReadingSession])
 
-  // Save settings to localStorage whenever they change
+  // End reading session on unmount
   useEffect(() => {
-    safeLocalStorage.setItem('flute-reader-settings', JSON.stringify(state.settings))
-  }, [state.settings])
+    return () => {
+      endReadingSession()
+    }
+  }, [endReadingSession])
 
   // Load book data if not provided via props
   useEffect(() => {
@@ -230,11 +198,11 @@ const BookReader = ({ book: propBook, chapter: propChapter, onBackToLibrary }: B
   }, [state.currentChapter, state.book, bookId, chapterId, navigate])
 
   const handleSettingChange = useCallback((setting: keyof ReaderSettings, value: number) => {
-    setState(prev => ({
+    setReaderSettings(prev => ({
       ...prev,
-      settings: { ...prev.settings, [setting]: value }
+      [setting]: value
     }))
-  }, [])
+  }, [setReaderSettings])
 
   const handleBackToLibrary = useCallback(() => {
     if (onBackToLibrary) {
@@ -251,8 +219,10 @@ const BookReader = ({ book: propBook, chapter: propChapter, onBackToLibrary }: B
     if (newChapter >= 1 && newChapter <= state.book.totalChapters) {
       triggerHapticFeedback()
       setState(prev => ({ ...prev, currentChapter: newChapter }))
+      // Update book progress when changing chapters
+      updateBookProgress(state.book.id, newChapter)
     }
-  }, [state.book, state.currentChapter])
+  }, [state.book, state.currentChapter, updateBookProgress])
 
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     if (!isMobile) return
@@ -453,8 +423,8 @@ const BookReader = ({ book: propBook, chapter: propChapter, onBackToLibrary }: B
           maxWidth: '800px',
           margin: '0 auto',
           width: '100%',
-          fontSize: `${state.settings.fontSize}px`,
-          lineHeight: state.settings.lineSpacing,
+          fontSize: `${readerSettings.fontSize}px`,
+          lineHeight: readerSettings.lineSpacing,
           fontFamily: 'Georgia, serif',
           ...(isMobile && {
             touchAction: 'pan-y',
@@ -474,7 +444,7 @@ const BookReader = ({ book: propBook, chapter: propChapter, onBackToLibrary }: B
               sx={{ 
                 mb: 4, 
                 textAlign: 'center',
-                fontSize: `${state.settings.fontSize * 1.5}px`
+                fontSize: `${readerSettings.fontSize * 1.5}px`
               }}
             >
               {state.book.title}
@@ -488,7 +458,7 @@ const BookReader = ({ book: propBook, chapter: propChapter, onBackToLibrary }: B
                 mb: 3, 
                 color: 'text.secondary',
                 textAlign: 'center',
-                fontSize: `${state.settings.fontSize * 1.25}px`
+                fontSize: `${readerSettings.fontSize * 1.25}px`
               }}
             >
               Chapter {state.currentChapter}
@@ -501,8 +471,8 @@ const BookReader = ({ book: propBook, chapter: propChapter, onBackToLibrary }: B
                   paragraph
                   sx={{ 
                     mb: 2,
-                    fontSize: `${state.settings.fontSize}px`,
-                    lineHeight: state.settings.lineSpacing,
+                    fontSize: `${readerSettings.fontSize}px`,
+                    lineHeight: readerSettings.lineSpacing,
                   }}
                 >
                   {paragraph}
@@ -546,10 +516,10 @@ const BookReader = ({ book: propBook, chapter: propChapter, onBackToLibrary }: B
         <List>
           <ListItem sx={{ flexDirection: 'column', alignItems: 'stretch' }}>
             <FormLabel component="legend" sx={{ mb: 2 }}>
-              Font Size: {state.settings.fontSize}px
+              Font Size: {readerSettings.fontSize}px
             </FormLabel>
             <Slider
-              value={state.settings.fontSize}
+              value={readerSettings.fontSize}
               onChange={(_, value) => handleSettingChange('fontSize', value as number)}
               min={12}
               max={24}
@@ -562,10 +532,10 @@ const BookReader = ({ book: propBook, chapter: propChapter, onBackToLibrary }: B
 
           <ListItem sx={{ flexDirection: 'column', alignItems: 'stretch' }}>
             <FormLabel component="legend" sx={{ mb: 2 }}>
-              Line Spacing: {state.settings.lineSpacing}
+              Line Spacing: {readerSettings.lineSpacing}
             </FormLabel>
             <Slider
-              value={state.settings.lineSpacing}
+              value={readerSettings.lineSpacing}
               onChange={(_, value) => handleSettingChange('lineSpacing', value as number)}
               min={1.2}
               max={2.5}
@@ -584,8 +554,8 @@ const BookReader = ({ book: propBook, chapter: propChapter, onBackToLibrary }: B
           <Typography 
             sx={{ 
               mt: 1, 
-              fontSize: `${state.settings.fontSize}px`,
-              lineHeight: state.settings.lineSpacing,
+              fontSize: `${readerSettings.fontSize}px`,
+              lineHeight: readerSettings.lineSpacing,
               fontFamily: 'Georgia, serif'
             }}
           >
