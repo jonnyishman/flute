@@ -165,7 +165,6 @@ class TestBookModel:
             chapter.save()
 
             chapter_id = chapter.id
-            book_id = book.id
 
             # Delete the book
             book.delete()
