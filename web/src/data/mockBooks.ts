@@ -18,17 +18,6 @@ const generateDummyBooks = (startId: number, count: number): Book[] => {
     "The Curious Incident", "Never Let Me Go", "Atonement", "The Book Thief"
   ]
 
-  const authors = [
-    "F. Scott Fitzgerald", "Harper Lee", "George Orwell", "Jane Austen",
-    "J.D. Salinger", "William Golding", "J.R.R. Tolkien", "Ray Bradbury",
-    "Charlotte Brontë", "Emily Brontë", "Aldous Huxley", "Oscar Wilde",
-    "Bram Stoker", "Mary Shelley", "Mark Twain", "Homer", "William Shakespeare",
-    "Charles Dickens", "Ernest Hemingway", "Jack Kerouac", "John Steinbeck",
-    "Kurt Vonnegut", "Margaret Atwood", "Toni Morrison", "Alice Walker",
-    "Zora Neale Hurston", "Ralph Ellison", "William Faulkner", "Khaled Hosseini",
-    "Yann Martel", "Mark Haddon", "Kazuo Ishiguro", "Ian McEwan", "Markus Zusak"
-  ]
-
   return Array.from({ length: count }, (_, i) => {
     const id = startId + i
     const totalWords = Math.floor(Math.random() * 150000) + 50000 // 50k-200k words

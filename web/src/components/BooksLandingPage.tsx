@@ -54,6 +54,7 @@ const BooksLandingPage = ({ onBookClick }: BooksLandingPageProps) => {
   // Initial load
   useEffect(() => {
     loadBooks(1, true)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Endless scroll implementation
@@ -77,7 +78,7 @@ const BooksLandingPage = ({ onBookClick }: BooksLandingPageProps) => {
   const renderSkeletons = () => (
     <Grid container spacing={3}>
       {Array.from({ length: 12 }, (_, i) => (
-        <Grid xs={12} sm={6} md={4} lg={3} key={`skeleton-${i}`}>
+        <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }} key={`skeleton-${i}`}>
           <Box>
             <Skeleton variant="rectangular" height={200} sx={{ borderRadius: 1 }} />
             <Skeleton variant="text" height={32} sx={{ mt: 1 }} />
@@ -120,7 +121,7 @@ const BooksLandingPage = ({ onBookClick }: BooksLandingPageProps) => {
       ) : (
         <Grid container spacing={3}>
           {books.map((book) => (
-            <Grid xs={12} sm={6} md={4} lg={3} key={book.id}>
+            <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }} key={book.id}>
               <BookTile book={book} onClick={onBookClick} />
             </Grid>
           ))}
