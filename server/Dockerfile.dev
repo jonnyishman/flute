@@ -13,8 +13,8 @@ RUN apt-get update && apt-get install -y \
 # Copy project files for dependency installation
 COPY pyproject.toml ./
 
-# Install Python dependencies including dev dependencies
-RUN pip install ".[dev]"
+# Install Python dependencies including dev dependencies (editable install for development)
+RUN pip install -e ".[dev]"
 
 # Expose port for Flask dev server
 EXPOSE 5000
