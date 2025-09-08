@@ -53,7 +53,6 @@ pytest
 ```bash
 ruff check .
 ruff format .
-mypy src/
 ```
 
 ## Configuration

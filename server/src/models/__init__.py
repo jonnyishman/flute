@@ -1,5 +1,5 @@
 """SQLAlchemy models package."""
 
-from .base import db, BaseModel
+from .base import BaseModel, db
 
 __all__ = ["db", "BaseModel"]

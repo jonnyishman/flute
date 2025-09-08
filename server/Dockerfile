@@ -6,6 +6,7 @@ WORKDIR /app
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
+    build-essential \
     gcc \
     && rm -rf /var/lib/apt/lists/*
 
@@ -13,7 +14,7 @@ RUN apt-get update && apt-get install -y \
 COPY pyproject.toml ./
 
 # Install Python dependencies including dev dependencies
-RUN pip install -e ".[dev]"
+RUN pip install ".[dev]"
 
 # Expose port for Flask dev server
 EXPOSE 5000

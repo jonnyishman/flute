@@ -1,13 +1,12 @@
 """API routes for the Flask application."""
 
-from typing import List
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify
 from flask_pydantic import validate
 from sqlalchemy.exc import IntegrityError
 
 from ..models import db
 from ..models.user import User
-from ..schemas import UserCreate, UserUpdate, UserResponse
+from ..schemas import UserCreate, UserResponse, UserUpdate
 
 # Create API blueprint
 api_bp = Blueprint("api", __name__)
@@ -24,7 +23,7 @@ def get_users():
     """Get all users."""
     users = User.query.all()
     return jsonify([
-        UserResponse.model_validate(user).model_dump() 
+        UserResponse.model_validate(user).model_dump()
         for user in users
     ])
 
@@ -59,11 +58,11 @@ def create_user(body: UserCreate):
 def update_user(user_id: int, body: UserUpdate):
     """Update an existing user."""
     user = User.query.get_or_404(user_id)
-    
+
     # Update only provided fields
     for field, value in body.model_dump(exclude_unset=True).items():
         setattr(user, field, value)
-    
+
     try:
         user.save()
         return jsonify(UserResponse.model_validate(user).model_dump())
