@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react'
 import { ThemeProvider } from '@mui/material/styles'
 import CssBaseline from '@mui/material/CssBaseline'
 import { describe, it, expect, vi } from 'vitest'
+import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import App from '../App'
 import theme from '../theme'
 
@@ -12,6 +13,10 @@ vi.mock('../components/BooksLandingPage', () => ({
 
 vi.mock('../PWABadge', () => ({
   default: () => <div data-testid="pwa-badge">Mocked PWA Badge</div>
+}))
+
+vi.mock('../components/BookUpload', () => ({
+  default: () => <div data-testid="book-upload-page">Mocked Book Upload Page</div>
 }))
 
 describe('Smoke Tests - Overall Page Rendering', () => {
@@ -60,5 +65,21 @@ describe('Smoke Tests - Overall Page Rendering', () => {
     // Verify theme is applied by checking for MUI classes
     const appContainer = screen.getByText('Flute - Your Reading Companion').closest('[class*="MuiToolbar"]')
     expect(appContainer).toBeInTheDocument()
+  })
+
+  it('renders upload page when navigating to /upload', () => {
+    render(
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <MemoryRouter initialEntries={['/upload']}>
+          <Routes>
+            <Route path="/" element={<div data-testid="books-landing-page">Mocked Books Landing Page</div>} />
+            <Route path="/upload" element={<div data-testid="book-upload-page">Mocked Book Upload Page</div>} />
+          </Routes>
+        </MemoryRouter>
+      </ThemeProvider>
+    )
+    
+    expect(screen.getByTestId('book-upload-page')).toBeInTheDocument()
   })
 })
