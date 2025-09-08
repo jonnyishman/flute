@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - 'server/**/*.py'
+      - 'server/pyproject.toml'
     types: [opened, synchronize, reopened]
 
 jobs:
@@ -15,7 +16,7 @@ jobs:
     
     strategy:
       matrix:
-        python-version: ["3.12"]
+        python-version: ["3.9"]
     
     steps:
     - name: Checkout code
