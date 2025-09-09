@@ -114,7 +114,7 @@ export const updateBookProgressAtom = atom(
 // Helper atom for starting a reading session
 export const startReadingSessionAtom = atom(
   null,
-  (get, set, { bookId, chapter }: { bookId: string; chapter: number }) => {
+  (_get, set, { bookId, chapter }: { bookId: string; chapter: number }) => {
     set(readingSessionAtom, {
       currentBookId: bookId,
       currentChapter: chapter,

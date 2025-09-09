@@ -2,7 +2,7 @@ import '@testing-library/jest-dom'
 import { vi } from 'vitest'
 
 // Add vi to global scope for the setup file
-global.vi = vi
+(global as any).vi = vi
 
 
 // Material-UI test setup
