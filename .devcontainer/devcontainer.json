@@ -1,0 +1,3 @@
+{
+  "postCreateCommand": "cd web && npm ci"
+}
