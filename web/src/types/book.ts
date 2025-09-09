@@ -8,8 +8,8 @@ export interface Book {
   knownWords: number
   lastReadDate: string
   readProgressRatio: number // 0-1, representing percentage read
-  lastReadChapter: number
   totalChapters: number
+  lastReadChapter?: number
 }
 
 export interface BooksPaginationResponse {

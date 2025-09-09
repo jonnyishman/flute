@@ -1,3 +1,4 @@
+import React from 'react'
 import {
   Card,
   CardContent,
@@ -8,10 +9,19 @@ import {
   Chip,
   Avatar,
   Stack,
+  IconButton,
+  Menu,
+  MenuItem,
+  ListItemIcon,
+  ListItemText,
 } from '@mui/material'
 import {
   Schedule,
   Book as BookIcon,
+  MoreVert,
+  Edit,
+  Archive,
+  Delete,
 } from '@mui/icons-material'
 import { Book } from '../types/book'
 
@@ -21,6 +31,21 @@ interface BookTileProps {
 }
 
 const BookTile = ({ book, onClick }: BookTileProps) => {
+  const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null)
+  const menuOpen = Boolean(anchorEl)
+
+  const handleMenuOpen = (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation()
+    setAnchorEl(event.currentTarget)
+  }
+
+  const handleMenuClose = () => {
+    setAnchorEl(null)
+  }
+
+  const handleMenuItemClick = (_action: string) => {
+    handleMenuClose()
+  }
   const formatNumber = (num: number): string => {
     if (num >= 1000) {
       return `${(num / 1000).toFixed(1)}k`
@@ -58,6 +83,7 @@ const BookTile = ({ book, onClick }: BookTileProps) => {
         flexDirection: 'column',
         transition: 'transform 0.2s, box-shadow 0.2s',
         cursor: onClick ? 'pointer' : 'default',
+        position: 'relative',
         '&:hover': {
           transform: 'translateY(-4px)',
           boxShadow: 4,
@@ -156,6 +182,60 @@ const BookTile = ({ book, onClick }: BookTileProps) => {
           </Typography>
         </Box>
       </CardContent>
+      
+      {/* Options Menu Button */}
+      <IconButton
+        aria-label="book options"
+        onClick={handleMenuOpen}
+        sx={{
+          position: 'absolute',
+          bottom: 8,
+          right: 8,
+          backgroundColor: 'rgba(255, 255, 255, 0.9)',
+          backdropFilter: 'blur(4px)',
+          '&:hover': {
+            backgroundColor: 'rgba(255, 255, 255, 1)',
+          },
+          minWidth: 44,
+          minHeight: 44,
+        }}
+      >
+        <MoreVert />
+      </IconButton>
+
+      {/* Options Menu */}
+      <Menu
+        anchorEl={anchorEl}
+        open={menuOpen}
+        onClose={handleMenuClose}
+        anchorOrigin={{
+          vertical: 'top',
+          horizontal: 'left',
+        }}
+        transformOrigin={{
+          vertical: 'bottom',
+          horizontal: 'left',
+        }}
+      >
+        <MenuItem onClick={() => handleMenuItemClick('edit')}>
+          <ListItemIcon>
+            <Edit fontSize="small" />
+          </ListItemIcon>
+          <ListItemText>Edit</ListItemText>
+        </MenuItem>
+        <MenuItem onClick={() => handleMenuItemClick('archive')}>
+          <ListItemIcon>
+            <Archive fontSize="small" />
+          </ListItemIcon>
+          <ListItemText>Archive</ListItemText>
+        </MenuItem>
+        <MenuItem onClick={() => handleMenuItemClick('delete')}>
+          <ListItemIcon>
+            <Delete fontSize="small" />
+          </ListItemIcon>
+          <ListItemText>Delete</ListItemText>
+        </MenuItem>
+      </Menu>
     </Card>
   )
 }

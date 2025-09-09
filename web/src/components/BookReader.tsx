@@ -153,7 +153,7 @@ const BookReader = ({ book: propBook, chapter: propChapter, onBackToLibrary }: B
             ...prev, 
             book: foundBook, 
             loading: false,
-            currentChapter: chapterId ? parseInt(chapterId, 10) : foundBook.lastReadChapter
+            currentChapter: chapterId ? parseInt(chapterId, 10) : foundBook.lastReadChapter ?? 1
           }))
         } catch (_) {
           setState(prev => ({ ...prev, loading: false, error: 'Failed to load book' }))
