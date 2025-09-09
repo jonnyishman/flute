@@ -99,7 +99,8 @@ describe('BooksLandingPage Smoke Tests', () => {
     vi.mocked(fetchBooks).mockResolvedValueOnce({
       books: [],
       hasMore: false,
-      totalCount: 0
+      totalCount: 0,
+      nextPage: null
     })
     
     renderComponent()
