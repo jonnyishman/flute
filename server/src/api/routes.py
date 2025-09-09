@@ -2,8 +2,13 @@
 
 from flask import Blueprint, jsonify
 
+from .books import books_bp
+
 # Create API blueprint
 api_bp = Blueprint("api", __name__)
+
+# Register sub-blueprints
+api_bp.register_blueprint(books_bp, url_prefix="/books")
 
 
 @api_bp.route("/health", methods=["GET"])
