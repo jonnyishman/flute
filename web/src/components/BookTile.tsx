@@ -43,7 +43,7 @@ const BookTile = ({ book, onClick }: BookTileProps) => {
     setAnchorEl(null)
   }
 
-  const handleMenuItemClick = (action: string) => {
+  const handleMenuItemClick = (_action: string) => {
     handleMenuClose()
   }
   const formatNumber = (num: number): string => {

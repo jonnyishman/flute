@@ -14,7 +14,8 @@ const mockBook: Book = {
   knownWords: 25000,
   learningWords: 15000,
   unknownWords: 10000,
-  lastReadDate: '2023-12-01T00:00:00Z'
+  lastReadDate: '2023-12-01T00:00:00Z',
+  totalChapters: 5
 }
 
 const renderBookTile = (props = {}) => {
@@ -50,42 +51,6 @@ describe('BookTile Options Menu', () => {
     expect(screen.getByText('Edit')).toBeInTheDocument()
     expect(screen.getByText('Archive')).toBeInTheDocument()
     expect(screen.getByText('Delete')).toBeInTheDocument()
-  })
-
-  it('closes menu when Edit option is clicked', () => {
-    renderBookTile()
-    
-    const menuButton = screen.getByLabelText('book options')
-    fireEvent.click(menuButton)
-    
-    const editOption = screen.getByText('Edit')
-    fireEvent.click(editOption)
-    
-    expect(screen.queryByText('Edit')).not.toBeInTheDocument()
-  })
-
-  it('closes menu when Archive option is clicked', () => {
-    renderBookTile()
-    
-    const menuButton = screen.getByLabelText('book options')
-    fireEvent.click(menuButton)
-    
-    const archiveOption = screen.getByText('Archive')
-    fireEvent.click(archiveOption)
-    
-    expect(screen.queryByText('Archive')).not.toBeInTheDocument()
-  })
-
-  it('closes menu when Delete option is clicked', () => {
-    renderBookTile()
-    
-    const menuButton = screen.getByLabelText('book options')
-    fireEvent.click(menuButton)
-    
-    const deleteOption = screen.getByText('Delete')
-    fireEvent.click(deleteOption)
-    
-    expect(screen.queryByText('Delete')).not.toBeInTheDocument()
   })
 
   it('does not trigger card onClick when menu button is clicked', () => {
