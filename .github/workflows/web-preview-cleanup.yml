@@ -1,0 +1,61 @@
+name: Web Preview Cleanup
+
+on:
+  pull_request:
+    types: [closed]
+    paths:
+      - 'web/**/*'
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pages: write
+      pull-requests: write
+    
+    steps:
+    - name: Checkout gh-pages branch
+      uses: actions/checkout@v4
+      with:
+        ref: gh-pages
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Remove preview directory
+      run: |
+        if [ -d "pr-${{ github.event.number }}" ]; then
+          rm -rf pr-${{ github.event.number }}
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add .
+          git commit -m "Remove preview for PR #${{ github.event.number }}" || exit 0
+          git push
+        fi
+
+    - name: Update PR comment
+      if: github.event.pull_request.merged == false
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const prNumber = context.payload.pull_request.number;
+          
+          const comments = await github.rest.issues.listComments({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: prNumber,
+          });
+          
+          const previewComment = comments.data.find(comment => 
+            comment.body.includes('Web Preview Available')
+          );
+          
+          if (previewComment) {
+            const updatedBody = previewComment.body + `\n\n**❌ Preview Removed** - This PR was closed without merging.`;
+            
+            await github.rest.issues.updateComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: previewComment.id,
+              body: updatedBody
+            });
+          }
