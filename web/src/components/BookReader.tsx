@@ -102,7 +102,6 @@ const BookReader = ({ book: propBook, chapter: propChapter, onBackToLibrary }: B
   // Jotai atoms
   const [readerSettings, setReaderSettings] = useAtom(readerSettingsAtom)
   const { 
-    _, 
     updateBookProgress, 
     startReadingSession, 
     endReadingSession 
