@@ -8,10 +8,10 @@ class Book(BaseModel):
 
     __tablename__ = "books"
 
-    title = db.Column(db.String(255), nullable=False)
+    title = db.Column(db.String(255), nullable=False, index=True)
     cover_art_filepath = db.Column(db.String(500), nullable=True)
     source = db.Column(db.String(255), nullable=True)
-    is_archived = db.Column(db.Boolean, default=False, nullable=False)
+    is_archived = db.Column(db.Boolean, default=False, nullable=False, index=True)
     last_visited_chapter = db.Column(db.Integer, nullable=True)
     last_visited_word_index = db.Column(db.Integer, nullable=True)
 

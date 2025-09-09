@@ -5,7 +5,7 @@ from typing import Any
 
 from flask import Blueprint
 from flask_pydantic import validate
-from sqlalchemy import func, select, text
+from sqlalchemy import func, select
 
 from src.models import db
 from src.models.book import Book, Chapter
@@ -49,27 +49,27 @@ def get_books(query: BookQueryParams) -> dict[str, Any]:
             func.coalesce(word_count_subquery.c.total_word_count, 0).label("word_count")
         )
         .outerjoin(word_count_subquery, Book.id == word_count_subquery.c.book_id)
-        .where(Book.is_archived == False)  # Only include non-archived books
+        .where(~Book.is_archived)  # Only include non-archived books
     )
     
     # Apply sorting
     if query.sort_field == SortField.ALPHABETICAL:
         if query.sort_order.value == "desc":
-            books_query = books_query.order_by(text("title DESC"))
+            books_query = books_query.order_by(Book.title.desc())
         else:
-            books_query = books_query.order_by(text("title ASC"))
+            books_query = books_query.order_by(Book.title.asc())
     elif query.sort_field == SortField.WORD_COUNT:
         if query.sort_order.value == "desc":
-            books_query = books_query.order_by(text("word_count DESC"))
+            books_query = books_query.order_by(func.coalesce(word_count_subquery.c.total_word_count, 0).desc())
         else:
-            books_query = books_query.order_by(text("word_count ASC"))
+            books_query = books_query.order_by(func.coalesce(word_count_subquery.c.total_word_count, 0).asc())
     else:
         # Default sort by ID
         books_query = books_query.order_by(Book.id)
     
     # Get total count for pagination
     count_query = select(func.count()).select_from(
-        select(Book.id).where(Book.is_archived == False)
+        select(Book.id).where(~Book.is_archived)
     )
     total = db.session.execute(count_query).scalar()
     
