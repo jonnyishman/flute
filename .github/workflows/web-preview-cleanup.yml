@@ -46,7 +46,7 @@ jobs:
           });
           
           const previewComment = comments.data.find(comment => 
-            comment.body.includes('')
+            comment.body.includes('Web Preview Available')
           );
           
           if (previewComment) {
