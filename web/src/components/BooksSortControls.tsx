@@ -8,8 +8,8 @@ import {
   Tooltip,
   SelectChangeEvent,
 } from '@mui/material'
-import { SwapVert, ArrowUpward, ArrowDownward } from '@mui/icons-material'
-import { SortField, SortOrder, SortOptions, SORT_FIELD_LABELS } from '../types/sorting'
+import { ArrowUpward, ArrowDownward } from '@mui/icons-material'
+import { SortField, SortOptions, SORT_FIELD_LABELS } from '../types/sorting'
 
 interface BooksSortControlsProps {
   sortOptions: SortOptions
