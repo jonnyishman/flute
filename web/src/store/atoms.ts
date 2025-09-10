@@ -1,5 +1,6 @@
 import { atom } from 'jotai'
 import { atomWithStorage } from 'jotai/utils'
+import { SortOptions, DEFAULT_SORT_OPTIONS } from '../types/sorting'
 
 // Types for our persistent data
 export interface ReaderSettings {
@@ -137,5 +138,15 @@ export const endReadingSessionAtom = atom(
     }
     
     set(readingSessionAtom, defaultReadingSession)
+  }
+)
+
+// Book sorting preferences
+export const bookSortOptionsAtom = atomWithStorage<SortOptions>(
+  'flute-book-sort-options',
+  DEFAULT_SORT_OPTIONS,
+  undefined,
+  {
+    getOnInit: true,
   }
 )

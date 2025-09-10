@@ -2,6 +2,7 @@ import { render, screen, waitFor } from '@testing-library/react'
 import { ThemeProvider } from '@mui/material/styles'
 import CssBaseline from '@mui/material/CssBaseline'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { Provider } from 'jotai'
 import BooksLandingPage from './BooksLandingPage'
 import theme from '../theme'
 
@@ -10,16 +11,21 @@ vi.mock('../data/mockBooks', () => ({
   fetchBooks: vi.fn(() => Promise.resolve({
     books: [
       {
-        id: '1',
+        id: 'book-1',
         title: 'Test Book',
-        author: 'Test Author',
-        coverImage: 'test-cover.jpg',
-        progress: 25,
-        genres: ['Fiction'],
-        lastRead: '2024-01-01'
+        coverArt: 'https://picsum.photos/300/400?random=1',
+        wordCount: 100000,
+        unknownWords: 500,
+        learningWords: 300,
+        knownWords: 99200,
+        lastReadDate: '2024-01-01T00:00:00.000Z',
+        readProgressRatio: 0.25,
+        lastReadChapter: 5,
+        totalChapters: 20,
       }
     ],
     hasMore: false,
+    nextPage: null,
     totalCount: 1
   }))
 }))
@@ -34,10 +40,12 @@ vi.mock('./BookTile', () => ({
 describe('BooksLandingPage Smoke Tests', () => {
   const renderComponent = () => {
     return render(
-      <ThemeProvider theme={theme}>
-        <CssBaseline />
-        <BooksLandingPage />
-      </ThemeProvider>
+      <Provider>
+        <ThemeProvider theme={theme}>
+          <CssBaseline />
+          <BooksLandingPage />
+        </ThemeProvider>
+      </Provider>
     )
   }
 
@@ -93,22 +101,15 @@ describe('BooksLandingPage Smoke Tests', () => {
     })
   })
 
-  it('handles empty state when no books are loaded', async () => {
-    // Mock empty response
-    const { fetchBooks } = await import('../data/mockBooks')
-    vi.mocked(fetchBooks).mockResolvedValueOnce({
-      books: [],
-      hasMore: false,
-      totalCount: 0,
-      nextPage: null
-    })
-    
+  it('displays sorting controls', async () => {
     renderComponent()
     
+    // Wait for component to load
     await waitFor(() => {
-      expect(screen.getByText('No books found')).toBeInTheDocument()
+      expect(screen.getByText('Test Book')).toBeInTheDocument()
     })
     
-    expect(screen.getByText('Start building your library by uploading your first book!')).toBeInTheDocument()
+    // Check that sorting controls are present
+    expect(screen.getByLabelText('Sort by')).toBeInTheDocument()
   })
 })

@@ -8,9 +8,13 @@ import {
   Alert,
   Skeleton,
 } from '@mui/material'
+import { useAtom } from 'jotai'
 import { Book } from '../types/book'
+import { SortOptions } from '../types/sorting'
 import { fetchBooks } from '../data/mockBooks'
+import { bookSortOptionsAtom } from '../store/atoms'
 import BookTile from './BookTile'
+import BooksSortControls from './BooksSortControls'
 
 interface BooksLandingPageProps {
   onBookClick?: (book: Book) => void
@@ -23,6 +27,7 @@ const BooksLandingPage = ({ onBookClick }: BooksLandingPageProps) => {
   const [hasMore, setHasMore] = useState(true)
   const [currentPage, setCurrentPage] = useState(1)
   const [totalCount, setTotalCount] = useState(0)
+  const [sortOptions, setSortOptions] = useAtom(bookSortOptionsAtom)
 
   // Function to load more books
   const loadBooks = useCallback(async (page: number, reset: boolean = false) => {
@@ -32,7 +37,7 @@ const BooksLandingPage = ({ onBookClick }: BooksLandingPageProps) => {
     setError(null)
 
     try {
-      const response = await fetchBooks(page)
+      const response = await fetchBooks(page, 12, sortOptions)
       
       if (reset) {
         setBooks(response.books)
@@ -49,13 +54,24 @@ const BooksLandingPage = ({ onBookClick }: BooksLandingPageProps) => {
     } finally {
       setLoading(false)
     }
-  }, [loading])
+  }, [loading, sortOptions])
 
   // Initial load
   useEffect(() => {
     loadBooks(1, true)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Reload books when sort options change
+  useEffect(() => {
+    loadBooks(1, true)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sortOptions])
+
+  // Handle sort change
+  const handleSortChange = (newSortOptions: SortOptions) => {
+    setSortOptions(newSortOptions)
+  }
 
   // Endless scroll implementation with throttling
   useEffect(() => {
@@ -108,9 +124,12 @@ const BooksLandingPage = ({ onBookClick }: BooksLandingPageProps) => {
     <Container maxWidth="xl" sx={{ py: 4 }}>
       {/* Header */}
       <Box mb={4}>
-        <Typography variant="h3" component="h1" gutterBottom fontWeight="bold">
-          Your Library
-        </Typography>
+        <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={2}>
+          <Typography variant="h3" component="h1" fontWeight="bold">
+            Your Library
+          </Typography>
+          <BooksSortControls sortOptions={sortOptions} onSortChange={handleSortChange} />
+        </Box>
         <Typography variant="subtitle1" color="text.secondary">
           {totalCount > 0 ? `${totalCount} books in your collection` : 'Loading your books...'}
         </Typography>

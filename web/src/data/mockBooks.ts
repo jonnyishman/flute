@@ -1,4 +1,5 @@
 import { Book } from '../types/book'
+import { SortOptions } from '../types/sorting'
 
 // Generate dummy book data
 const generateDummyBooks = (startId: number, count: number): Book[] => {
@@ -46,18 +47,59 @@ const generateDummyBooks = (startId: number, count: number): Book[] => {
   })
 }
 
+// Helper function to sort books based on sort options
+const sortBooks = (books: Book[], sortOptions: SortOptions): Book[] => {
+  return [...books].sort((a, b) => {
+    let comparison = 0
+    
+    switch (sortOptions.field) {
+      case 'lastRead':
+        comparison = new Date(a.lastReadDate).getTime() - new Date(b.lastReadDate).getTime()
+        break
+      case 'alphabetical':
+        comparison = a.title.localeCompare(b.title)
+        break
+      case 'wordCount':
+        comparison = a.wordCount - b.wordCount
+        break
+      case 'unknownWords':
+        comparison = a.unknownWords - b.unknownWords
+        break
+      case 'learningWords':
+        comparison = a.learningWords - b.learningWords
+        break
+      default:
+        comparison = 0
+    }
+    
+    return sortOptions.order === 'asc' ? comparison : -comparison
+  })
+}
+
 // Mock API function to simulate paginated book fetching
-export const fetchBooks = async (page: number = 1, pageSize: number = 12): Promise<{ books: Book[], hasMore: boolean, nextPage: number | null, totalCount: number }> => {
+export const fetchBooks = async (
+  page: number = 1, 
+  pageSize: number = 12,
+  sortOptions?: SortOptions
+): Promise<{ books: Book[], hasMore: boolean, nextPage: number | null, totalCount: number }> => {
   // Simulate API delay
   await new Promise(resolve => setTimeout(resolve, 500))
   
   const totalBooks = 150 // Total number of books in our mock database
+  
+  // Generate all books for sorting (in real implementation, this would be handled by the backend)
+  const allBooks = generateDummyBooks(0, totalBooks)
+  
+  // Sort books if sort options provided
+  const sortedBooks = sortOptions ? sortBooks(allBooks, sortOptions) : allBooks
+  
+  // Apply pagination to sorted books
   const startIndex = (page - 1) * pageSize
-  const books = generateDummyBooks(startIndex, Math.min(pageSize, totalBooks - startIndex))
+  const paginatedBooks = sortedBooks.slice(startIndex, startIndex + pageSize)
   const hasMore = startIndex + pageSize < totalBooks
   
   return {
-    books,
+    books: paginatedBooks,
     hasMore,
     nextPage: hasMore ? page + 1 : null,
     totalCount: totalBooks,
