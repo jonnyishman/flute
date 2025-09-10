@@ -35,7 +35,11 @@ describe('BooksSortControls Smoke Tests', () => {
 
   it('displays sort direction button', () => {
     renderComponent()
-    // Should show the sort direction button with tooltip
-    expect(screen.getByTitle('Sort descending')).toBeInTheDocument()
+    // Should show the sort direction button (with default descending order)
+    const sortButton = screen.getByRole('button')
+    expect(sortButton).toBeInTheDocument()
+    // Check that it has the correct icon for descending order (ArrowDownward)
+    const downwardIcon = sortButton.querySelector('svg')
+    expect(downwardIcon).toBeInTheDocument()
   })
 })

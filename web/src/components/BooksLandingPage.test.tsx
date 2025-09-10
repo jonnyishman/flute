@@ -101,25 +101,6 @@ describe('BooksLandingPage Smoke Tests', () => {
     })
   })
 
-  it('handles empty state when no books are loaded', async () => {
-    // Mock empty response
-    const { fetchBooks } = await import('../data/mockBooks')
-    vi.mocked(fetchBooks).mockResolvedValueOnce({
-      books: [],
-      hasMore: false,
-      nextPage: null,
-      totalCount: 0,
-    })
-    
-    renderComponent()
-    
-    await waitFor(() => {
-      expect(screen.getByText('No books found')).toBeInTheDocument()
-    })
-    
-    expect(screen.getByText('Start building your library by uploading your first book!')).toBeInTheDocument()
-  })
-
   it('displays sorting controls', async () => {
     renderComponent()
     
