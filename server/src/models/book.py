@@ -1,4 +1,5 @@
 """Book and Chapter models for storing book information."""
+from __future__ import annotations
 
 from .base import BaseModel, db
 
@@ -23,15 +24,6 @@ class Book(BaseModel):
         cascade="all, delete-orphan"
     )
 
-    def __repr__(self) -> str:
-        """String representation of the book."""
-        return f"<Book {self.title}>"
-
-    @property
-    def chapter_count(self) -> int:
-        """Get the total number of chapters in this book."""
-        return self.chapters.count()
-
 
 class Chapter(BaseModel):
     """Chapter model representing individual chapters within books."""
@@ -54,12 +46,3 @@ class Chapter(BaseModel):
         back_populates="chapters",
         lazy="select"
     )
-
-    def __repr__(self) -> str:
-        """String representation of the chapter."""
-        return f"<Chapter {self.chapter_number} of Book {self.book_id}>"
-
-    @property
-    def title(self) -> str:
-        """Generate a display title for the chapter."""
-        return f"Chapter {self.chapter_number}"

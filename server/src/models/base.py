@@ -1,6 +1,7 @@
 """SQLAlchemy database instance and base model."""
+from __future__ import annotations
 
-from datetime import datetime
+import datetime as dt
 
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import DeclarativeBase
@@ -22,31 +23,10 @@ class BaseModel(db.Model):
     __abstract__ = True
 
     id = db.Column(db.Integer, primary_key=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    created_at = db.Column(db.DateTime, default=dt.datetime.now(dt.UTC), nullable=False)
     updated_at = db.Column(
         db.DateTime,
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow,
+        default=dt.datetime.now(dt.UTC),
+        onupdate=dt.datetime.now(dt.UTC),
         nullable=False
     )
-
-    def to_dict(self) -> dict:
-        """Convert model instance to dictionary.
-
-        Returns:
-            Dictionary representation of the model
-        """
-        return {
-            column.name: getattr(self, column.name)
-            for column in self.__table__.columns
-        }
-
-    def save(self) -> None:
-        """Save the model instance to the database."""
-        db.session.add(self)
-        db.session.commit()
-
-    def delete(self) -> None:
-        """Delete the model instance from the database."""
-        db.session.delete(self)
-        db.session.commit()
