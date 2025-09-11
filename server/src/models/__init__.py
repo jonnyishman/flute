@@ -1,6 +1,6 @@
 """SQLAlchemy models package."""
 
-from .base import BaseModel, db
-from .book import Book, Chapter
+from src.models.base import db
+from src.models.books import Book, Chapter
 
-__all__ = ["db", "BaseModel", "Book", "Chapter"]
+__all__ = ["db", "Book", "Chapter"]

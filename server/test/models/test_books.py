@@ -8,7 +8,7 @@ import sqlalchemy as sa
 from sqlalchemy.exc import IntegrityError
 
 from src.models import db
-from src.models.book import Book, Chapter
+from src.models.books import Book, Chapter
 
 if TYPE_CHECKING:
     from flask import Flask
@@ -39,12 +39,14 @@ class TestBookModel:
         chapter1 = Chapter(
             book=book,
             chapter_number=1,
-            content="Chapter 1 content"
+            content="Chapter 1 content",
+            word_count=3,
         )
         chapter2 = Chapter(
             book=book,
             chapter_number=2,
-            content="Chapter 2 content"
+            content="Chapter 2 content",
+            word_count=3,
         )
         db.session.add_all([book, chapter1, chapter2])
         db.session.commit()
@@ -61,7 +63,8 @@ class TestBookModel:
         chapter = Chapter(
             book=book,
             chapter_number=1,
-            content="Test content"
+            content="Test content",
+            word_count=3,
         )
         db.session.add_all([book, chapter])
         db.session.commit()
@@ -84,7 +87,8 @@ class TestChapterModel:
         chapter = Chapter(
             book=book,
             chapter_number=1,
-            content="This is chapter content with multiple words"
+            content="This is chapter content with multiple words",
+            word_count=3,
         )
         db.session.add_all([book, chapter])
         db.session.commit()
@@ -93,7 +97,7 @@ class TestChapterModel:
         assert chapter.book_id == book.id
         assert chapter.chapter_number == 1
         assert chapter.content == "This is chapter content with multiple words"
-        assert chapter.word_count == 0  # Default value
+        assert chapter.word_count == 3
 
     def test_unique_constraint(self, app: Flask):
         """Test book_id + chapter_number uniqueness"""
@@ -102,7 +106,8 @@ class TestChapterModel:
         chapter1 = Chapter(
             book=book,
             chapter_number=1,
-            content="First chapter"
+            content="First chapter",
+            word_count=3,
         )
         db.session.add_all([book, chapter1])
         db.session.commit()
@@ -111,7 +116,8 @@ class TestChapterModel:
         chapter2 = Chapter(
             book=book,
             chapter_number=1,
-            content="Duplicate chapter"
+            content="Duplicate chapter",
+            word_count=3,
         )
         db.session.add(chapter2)
 
