@@ -156,7 +156,7 @@ const BooksLandingPage = ({ onBookClick }: BooksLandingPageProps) => {
       )}
 
       {/* Loading Indicator for Pagination */}
-      {loading && books.length > 0 && (
+      {hasMore && books.length > 0 && (
         <Box display="flex" justifyContent="center" mt={4}>
           <CircularProgress />
         </Box>
