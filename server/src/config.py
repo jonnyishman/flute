@@ -1,50 +1,36 @@
-"""Flask application configuration."""
+"""
+On this page is a single App Config which is to be used by all environments.
 
-import os
-from pathlib import Path
+There are no separate configs for each environment (local, staging, prod,
+etc). This is to remove the potential bug where config meant for one environment
+(say prod) is accidentally used in a different environment (say local dev) due
+to a typo or other human error.
 
+Instead, the rules for providing config are simple:
 
-class Config:
-    """Base configuration class."""
+1. Any values which are expected to change between deployment envs must not live
+in the code base and are passed through environment variables only. Such as DB
+connection strings and API keys.
+2. Any values which are expected to be consistent throughout the deployment envs
+can be defaulted if desired. These can be still provided through environment
+variables, but the idea is that nothing bad will happen if somebody makes a typo
+and the defaulted value is picked up by mistake.
+"""
+from __future__ import annotations
 
-    SECRET_KEY = os.environ.get("SECRET_KEY", "dev-secret-key-change-in-production")
-    SQLALCHEMY_TRACK_MODIFICATIONS = False
-
-    # Base directory for database files
-    BASE_DIR = Path(__file__).parent.parent
-
-
-class DevelopmentConfig(Config):
-    """Development configuration."""
-
-    DEBUG = True
-    SQLALCHEMY_DATABASE_URI = os.environ.get(
-        "DATABASE_URL",
-        f"sqlite:///{Config.BASE_DIR / 'dev.db'}"
-    )
+from pydantic_settings import BaseSettings
 
 
-class TestingConfig(Config):
-    """Testing configuration."""
+class AppConfig(BaseSettings):
+    """
+    The behaviour of pydantic's BaseSettings is that environment variables are
+    checked for any keys not provided when instantiating the class. If no env var
+    exists for a key then the default is used if provided.
+    """
 
-    TESTING = True
-    SQLALCHEMY_DATABASE_URI = "sqlite:///:memory:"
-    WTF_CSRF_ENABLED = False
+    # Must be provided by env vars
+    SQLALCHEMY_DATABASE_URI: str
+    SECRET_KEY: str
 
-
-class ProductionConfig(Config):
-    """Production configuration."""
-
-    DEBUG = False
-    SQLALCHEMY_DATABASE_URI = os.environ.get(
-        "DATABASE_URL",
-        f"sqlite:///{Config.BASE_DIR / 'prod.db'}"
-    )
-
-
-config = {
-    "development": DevelopmentConfig,
-    "testing": TestingConfig,
-    "production": ProductionConfig,
-    "default": DevelopmentConfig,
-}
+    # Expect same value for all envs so can be defaulted
+    SQLALCHEMY_TRACK_MODIFICATIONS: bool = False

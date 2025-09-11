@@ -1,4 +1,5 @@
 """API routes for the Flask application."""
+from __future__ import annotations
 
 from flask import Blueprint, jsonify
 
@@ -13,12 +14,12 @@ def health_check():
 
 
 @api_bp.errorhandler(404)
-def not_found(error):
+def not_found(error: str):
     """Handle 404 errors."""
-    return jsonify({"error": "Resource not found"}), 404
+    return jsonify({"error": "Resource not found", "msg": str(error)}), 404
 
 
 @api_bp.errorhandler(400)
-def bad_request(error):
+def bad_request(error: str):
     """Handle 400 errors."""
-    return jsonify({"error": "Bad request"}), 400
+    return jsonify({"error": "Bad request", "msg": str(error)}), 400
