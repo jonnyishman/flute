@@ -11,29 +11,14 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    SmallInteger,
     String,
     Text,
-    UniqueConstraint,
-    func,
 )
-from sqlalchemy.orm import Mapped, declarative_mixin, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from src.models.base import db
-
-
-@declarative_mixin
-class AuditMixin:
-    created_at: Mapped[dt.datetime] = mapped_column(
-        DateTime,
-        server_default=func.current_timestamp(),
-        nullable=False
-    )
-    updated_at: Mapped[dt.datetime] = mapped_column(
-        DateTime,
-        server_default=func.current_timestamp(),
-        onupdate=func.current_timestamp(),
-        nullable=False
-    )
+from src.models.base import AuditMixin, db
+from src.models.language import Language
 
 
 class Book(db.Model, AuditMixin):
@@ -43,6 +28,7 @@ class Book(db.Model, AuditMixin):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
 
+    language_id: Mapped[int] = mapped_column(Integer, ForeignKey(Language.id), nullable=False, index=True)
     title: Mapped[str] = mapped_column(String(500), nullable=False)
     cover_art_filepath: Mapped[str | None] = mapped_column(String(500), nullable=True)
     source: Mapped[str | None] = mapped_column(String(500), nullable=True)
@@ -59,6 +45,7 @@ class Book(db.Model, AuditMixin):
         lazy="dynamic",
         cascade="all, delete-orphan"
     )
+    language = relationship(Language)
 
 
 class Chapter(db.Model, AuditMixin):
@@ -66,8 +53,7 @@ class Chapter(db.Model, AuditMixin):
 
     __tablename__ = "chapters"
     __table_args__ = (
-        # Unique constraint on book_id + chapter_number
-        UniqueConstraint("book_id", "chapter_number", name="uq_book_chapter"),
+        Index("ix_chapter_book_id_chapter_number", "book_id", "chapter_number", unique=True),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -90,16 +76,21 @@ class Token(db.Model):
     __tablename__ = "tokens"
     __table_args__ = (
         CheckConstraint("kind IN (1, 2)", name="ck_token_kind_valid"),
+        Index("ix_token_language_id_norm", "language_id", "norm", unique=True),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
 
-    norm: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
+    language_id: Mapped[int] = mapped_column(Integer, ForeignKey(Language.id), nullable=False)
+    norm: Mapped[str] = mapped_column(String(255), nullable=False)
     kind: Mapped[int] = mapped_column(
-        Integer,
+        SmallInteger,
         nullable=False,
         server_default=str(TokenKind.WORD.value)
     )
+
+    # Relationships
+    language = relationship(Language)
 
 
 class BookVocab(db.Model):
@@ -143,8 +134,8 @@ class TokenProgress(db.Model, AuditMixin):
     )
 
     token_id: Mapped[int] = mapped_column(Integer, ForeignKey(Token.id), primary_key=True)
-    status: Mapped[int] = mapped_column(Integer, nullable=False)
-    learning_stage: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    status: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    learning_stage: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
     translation: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
 
