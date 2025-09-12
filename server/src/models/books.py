@@ -15,6 +15,7 @@ from sqlalchemy import (
     String,
     Text,
 )
+from sqlalchemy.dialects.sqlite import insert
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.models.base import AuditMixin, db
@@ -61,6 +62,7 @@ class Chapter(db.Model, AuditMixin):
     book_id: Mapped[int] = mapped_column(Integer, ForeignKey(Book.id), nullable=False)
     chapter_number: Mapped[int] = mapped_column(Integer, nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
+    word_count: Mapped[int] = mapped_column(Integer, nullable=False)
 
     # Relationships
     book: Mapped[Book] = relationship("Book", back_populates="chapters", lazy="select")
@@ -146,3 +148,18 @@ class BookTotals(db.Model):
     book_id: Mapped[int] = mapped_column(Integer, ForeignKey(Book.id, ondelete="CASCADE"), primary_key=True)
     total_tokens: Mapped[int] = mapped_column(Integer, nullable=False)
     total_types: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    @classmethod
+    def upsert_stmt(cls, book_id: int, total_tokens: int, total_types: int):
+        """Return an upsert statement for the given book totals."""
+        return insert(cls).values(
+            book_id=book_id,
+            total_tokens=total_tokens,
+            total_types=total_types,
+        ).on_conflict_do_update(
+            index_elements=[cls.book_id],
+            set_={
+                "total_tokens": total_tokens,
+                "total_types": total_types,
+            }
+        )
