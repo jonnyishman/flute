@@ -14,7 +14,6 @@ from sqlalchemy import (
     SmallInteger,
     String,
     Text,
-    UniqueConstraint,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -29,7 +28,7 @@ class Book(db.Model, AuditMixin):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
 
-    language_id: Mapped[int] = mapped_column(Integer, ForeignKey(Language.id), nullable=False)
+    language_id: Mapped[int] = mapped_column(Integer, ForeignKey(Language.id), nullable=False, index=True)
     title: Mapped[str] = mapped_column(String(500), nullable=False)
     cover_art_filepath: Mapped[str | None] = mapped_column(String(500), nullable=True)
     source: Mapped[str | None] = mapped_column(String(500), nullable=True)
@@ -54,8 +53,7 @@ class Chapter(db.Model, AuditMixin):
 
     __tablename__ = "chapters"
     __table_args__ = (
-        # Unique constraint on book_id + chapter_number
-        UniqueConstraint("book_id", "chapter_number", name="uq_book_chapter"),
+        Index("ix_chapter_book_id_chapter_number", "book_id", "chapter_number", unique=True),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -78,12 +76,13 @@ class Token(db.Model):
     __tablename__ = "tokens"
     __table_args__ = (
         CheckConstraint("kind IN (1, 2)", name="ck_token_kind_valid"),
+        Index("ix_token_language_id_norm", "language_id", "norm", unique=True),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
 
     language_id: Mapped[int] = mapped_column(Integer, ForeignKey(Language.id), nullable=False)
-    norm: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
+    norm: Mapped[str] = mapped_column(String(255), nullable=False)
     kind: Mapped[int] = mapped_column(
         SmallInteger,
         nullable=False,
