@@ -1,29 +1,26 @@
-# Project layout
+# Project Layout
 
-Any references to front end code refer to the code in the @web directory which contains a typescript and react based website for the flute application. 
+**CRITICAL**: Frontend code is in `@web` (TypeScript/React), backend code is in `@server` (Python/Flask).
 
-Any references to back end code refer to the code in the @server directory which contains a python flask based API server for the flute application. 
-
-Any bash command that follow assume they are execute from the repository root directory. 
-Adjust them as required if running from another directory.
+**ALL bash commands MUST be executed from repository root directory.**
 
 # When making changes to server code
 
 **Above all**, defer to the surrounding code style.
 
-## Bash commands
-- ./server/venv/bin/ruff check --fix ./server (Lints server code and fixes simple errors)
-- ./server/venv/bin/pytest ./server (Runs all server tests)
+## MANDATORY Commands After Server Changes
+```bash
+./server/venv/bin/ruff check --fix ./server    # MUST run - fixes linting
+./server/venv/bin/pytest ./server              # MUST run - validates changes
+```
 
-## Code style
-
-- Ensure function definitions have type annotations
-- Follow PEP 8 for code style, and PEP 257 for docstrings
-- Follow PEP 585 for type hints: for example, prefer `list[str]` to `List[str]`
-- Use walrus operator (`:=`) when it eliminates redundancy AND improves readability
-- List comprehensions over loops when straightforward
-- Use boolean expressions and `elif` instead of nested ifs
-- For function design accept flexible types (`Sequence`), return specific types (`list`)
+## NON-NEGOTIABLE Code Style Rules
+- **ALWAYS** add type annotations to ALL function definitions
+- **STRICTLY** follow PEP 8 (style) and PEP 257 (docstrings)  
+- **REQUIRED**: Use modern type hints (`list[str]`, NOT `List[str]`)
+- **PREFERRED**: Walrus operator `:=` when it improves readability
+- **PREFERRED**: List comprehensions over explicit loops
+- **REQUIRED**: Function parameters accept flexible types (`Sequence`), return specific types (`list`)
 
 ## Test style
 - Tests should mostly on inputs/outputs, rather than state
@@ -33,10 +30,12 @@ Adjust them as required if running from another directory.
 
 # When making changes to web code
 
-## Bash commands
-- npm run --prefix ./web lint (Lints web code)
-- npm run --prefix ./web typecheck (Runs type checker on web code)
-- npm run --prefix ./web test:run (Run tests on web code)
+## MANDATORY Commands After Web Changes
+```bash
+npm run --prefix ./web lint        # MUST run - fixes linting
+npm run --prefix ./web typecheck   # MUST run - validates types
+npm run --prefix ./web test:run    # MUST run - validates changes
+```
 
 ## Code style
 - Use ES modules (import/export) syntax, not CommonJS (require)
@@ -46,23 +45,29 @@ Adjust them as required if running from another directory.
 - Tests should be very high-level, smoke-like tests. No detailed tests of individual components
 required.
 
-# Critical Verification Workflow
-1. Be sure to run linters in the appropiate directory when making a series of code changes
-2. **ALL checks must pass** - No exceptions, no "unrelated errors"
-3. Prefer running single tests, and not the whole test suite, for performance
-4. If you create helper classes/functions, verify that are actually USED
-5. If you refactor code, verify the old code is actually REPLACED
+# CRITICAL Verification Workflow - NEVER SKIP
+1. **MANDATORY**: Run appropriate linters after ANY code changes
+2. **ZERO TOLERANCE**: ALL checks must pass - no exceptions, no "unrelated errors"
+3. **PERFORMANCE**: Run targeted tests, not full suite unless required
+4. **VERIFICATION**: Ensure new helper classes/functions are actually USED
+5. **CLEANUP**: When refactoring, verify old code is completely REPLACED
 
-## Research Before Suppressing
+## NEVER Suppress Without Investigation
 
-- When encountering linting/typing errors, research proper solutions FIRST
-- Never suggest `# pylint: disable=` or `# type: ignore` without investigating:
+- **FORBIDDEN**: Using `# pylint: disable=` or `# type: ignore` without research
+- **REQUIRED**: First investigate proper solutions:
   - Modern best practices (e.g., `Annotated` for Pydantic)
-  - Whether error indicates real issue vs. tool limitation
-  - Alternative approaches that fix root cause
-- Only use suppressions as absolute last resort with clear justification
+  - Root cause analysis 
+  - Alternative implementation approaches
+- **LAST RESORT**: Suppressions only with clear documentation why
 
 ## Comments
 
 - Explain WHY, not WHAT
 - Only comment non-obvious aspects. I.e. timing dependencies, edge cases, domain knowledge
+
+# important-instruction-reminders
+Do what has been asked; nothing more, nothing less.
+NEVER create files unless they're absolutely necessary for achieving your goal.
+ALWAYS prefer editing an existing file to creating a new one.
+NEVER proactively create documentation files (*.md) or README files. Only create documentation files if explicitly requested by the User.

@@ -1,13 +1,28 @@
-This is a flask app serving the backend API for flute. 
+# Flask Backend API for Flute
 
-Any changes to production code under @src should be reflected by modifying or adding tests under @test.
+## MANDATORY Requirements
 
-The structure for @test should reflect the same structure for code in @src, but with the `test_` prefix for test modules. For example, tests for `src/routes/books.py` should live in `test/routes/test_books.py`. 
+**CRITICAL**: Every change to `@src` code REQUIRES corresponding test changes in `@test`.
 
-Python typing should be used for all function arguments and to specify the return types of functions. Imports that are used only for typing and not for runtime should be kept under an 'if TYPE_CHECKING:` block.
+### Test Structure
+- **REQUIRED**: Mirror `@src` structure in `@test` with `test_` prefix
+- Example: `src/routes/books.py` → `test/routes/test_books.py`
 
-After making changes linting and tests should be run for the changed files only. 
+### Python Code Standards
+- **MANDATORY**: Type annotations on ALL function arguments and return types
+- **REQUIRED**: Runtime imports vs typing imports separation:
+  ```python
+  from typing import TYPE_CHECKING
+  if TYPE_CHECKING:
+      # typing-only imports here
+  ```
 
-When writing sql queries in src use the sqlalchemy core approach to query construction, rather than the ORM approach where queries are hidden. 
+### Database Queries  
+- **FORBIDDEN**: SQLAlchemy ORM approach (hidden queries)
+- **REQUIRED**: SQLAlchemy Core approach (explicit query construction)
 
-All python modules must end in a newline.
+### File Format
+- **MANDATORY**: All Python modules must end with newline
+
+## Post-Change Workflow
+**ALWAYS** run linting and tests for changed files only after modifications.
