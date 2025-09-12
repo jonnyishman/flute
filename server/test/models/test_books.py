@@ -59,11 +59,13 @@ class TestBookModel:
             book=book,
             chapter_number=1,
             content="Chapter 1 content",
+            word_count=3,
         )
         chapter2 = Chapter(
             book=book,
             chapter_number=2,
             content="Chapter 2 content",
+            word_count=3,
         )
 
         # When
@@ -84,6 +86,7 @@ class TestBookModel:
             book=book,
             chapter_number=1,
             content="Test content",
+            word_count=2,
         )
         db.session.add_all([language, book, chapter])
         db.session.commit()
@@ -109,6 +112,7 @@ class TestChapterModel:
             book=book,
             chapter_number=1,
             content="This is chapter content with multiple words",
+            word_count=7,
         )
 
         # When
@@ -130,6 +134,7 @@ class TestChapterModel:
             book=book,
             chapter_number=1,
             content="First chapter",
+            word_count=2,
         )
         db.session.add_all([language, book, chapter1])
         db.session.commit()
@@ -139,6 +144,7 @@ class TestChapterModel:
             book=book,
             chapter_number=1,
             content="Duplicate chapter",
+            word_count=2,
         )
         db.session.add(chapter2)
 

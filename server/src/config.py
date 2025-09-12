@@ -34,3 +34,4 @@ class AppConfig(BaseSettings):
 
     # Expect same value for all envs so can be defaulted
     SQLALCHEMY_TRACK_MODIFICATIONS: bool = False
+    FLASK_PYDANTIC_VALIDATION_ERROR_STATUS_CODE: int = 422

@@ -19,6 +19,7 @@ dependencies = [
     "pydantic[email]>=2.0.0",
     "pydantic-settings>=2.0.0",
     "python-dotenv>=1.0.0",
+    "more_itertools>=10.0.0",
 ]
 
 [project.optional-dependencies]

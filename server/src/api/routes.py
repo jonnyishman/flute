@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from flask import Blueprint, jsonify
+from werkzeug.exceptions import HTTPException
 
 # Create API blueprint
 api_bp = Blueprint("api", __name__)
@@ -13,13 +14,14 @@ def health_check():
     return jsonify({"status": "healthy", "message": "API is running"})
 
 
-@api_bp.errorhandler(404)
-def not_found(error: str):
-    """Handle 404 errors."""
-    return jsonify({"error": "Resource not found", "msg": str(error)}), 404
+@api_bp.errorhandler(HTTPException)
+def client_error(error: HTTPException):
+    """Handle werkzeug errors"""
+    return jsonify({"error": error.name, "msg": error.description}), error.code
 
 
-@api_bp.errorhandler(400)
-def bad_request(error: str):
-    """Handle 400 errors."""
-    return jsonify({"error": "Bad request", "msg": str(error)}), 400
+@api_bp.errorhandler(Exception)
+def server_error(error: Exception):
+    """Handle uncaught exceptions"""
+    return jsonify({"error": "Internal Server Error", "msg": str(error)}), 500
+
