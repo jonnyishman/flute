@@ -1,9 +1,25 @@
-This directory contains the web app for flute. 
+# Flute Web Application (TypeScript/React)
 
-When changing production code the tests for that code should be modified or created. 
+## MANDATORY Requirements
 
-Tests in this directory should be very high-level, do not write detailed unit tests or test individual
-components. Only write smoke test style tests that make sure that the pages render properly and URL
-params are passed around properly. 
+**CRITICAL**: Every production code change REQUIRES test modifications/creation.
 
-After making changes to any production code files run linting and tests for the changed files only. 
+### Test Strategy
+- **FORBIDDEN**: Detailed unit tests or individual component testing
+- **REQUIRED**: High-level smoke tests only:
+  - Page rendering validation
+  - URL parameter handling verification
+  - Basic functionality confirmation
+
+### Code Standards  
+- **MANDATORY**: ES modules (`import`/`export`), NOT CommonJS (`require`)
+- **PREFERRED**: Destructured imports: `import { foo } from 'bar'`
+
+## Post-Change Workflow
+**ALWAYS** run linting and tests for changed files only after modifications.
+
+## Important Reminders
+- Do what has been asked; nothing more, nothing less
+- NEVER create files unless absolutely necessary 
+- ALWAYS prefer editing existing files over creating new ones
+- NEVER proactively create documentation files unless explicitly requested 
