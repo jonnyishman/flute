@@ -50,6 +50,7 @@ ignore = [
     "E501",   # line-too-long (handled by formatter)
     "B008",   # do not perform function calls in argument defaults
     "ARG001", # unused function argument (common in Flask routes)
+    "TC003",  # type-checking block doesn't work well with sqlalchemy declarative mapping
 ]
 
 [tool.ruff.lint.per-file-ignores]

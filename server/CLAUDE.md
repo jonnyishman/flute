@@ -10,6 +10,7 @@
 
 ### Python Code Standards
 - **MANDATORY**: Type annotations on ALL function arguments and return types
+- **REQUIRED**: All python modules must include a `from __futures__ import annotations`
 - **REQUIRED**: Runtime imports vs typing imports separation:
   ```python
   from typing import TYPE_CHECKING

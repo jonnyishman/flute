@@ -1,8 +1,8 @@
 """Book and Chapter models for storing book information."""
 from __future__ import annotations
 
+import datetime as dt
 from enum import IntEnum
-from typing import TYPE_CHECKING
 
 from sqlalchemy import (
     Boolean,
@@ -19,9 +19,6 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, declarative_mixin, mapped_column, relationship
 
 from src.models.base import db
-
-if TYPE_CHECKING:
-    import datetime as dt
 
 
 @declarative_mixin
