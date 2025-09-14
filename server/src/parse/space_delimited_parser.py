@@ -10,14 +10,14 @@ Includes classes:
 - TurkishParser
 """
 
+from __future__ import annotations
+
 import functools
 import re
 import sys
 import unicodedata
 
-from typing import List
-
-from lute.parse.base import ParsedToken, AbstractParser
+from src.parse.base import AbstractParser, ParsedToken
 
 
 class SpaceDelimitedParser(AbstractParser):
@@ -42,7 +42,7 @@ class SpaceDelimitedParser(AbstractParser):
         """Return default value for lang.word_characters."""
 
         # Unicode categories reference: https://www.compart.com/en/unicode/category
-        categories = set(["Cf", "Ll", "Lm", "Lo", "Lt", "Lu", "Mc", "Mn", "Sk"])
+        categories = {"Cf", "Ll", "Lm", "Lo", "Lt", "Lu", "Mc", "Mn", "Sk"}
 
         # There are more than 130,000 characters across all these categories.
         # Expressing this a single character at a time, mostly using unicode
@@ -157,7 +157,7 @@ class SpaceDelimitedParser(AbstractParser):
             ]
         )
 
-    def get_parsed_tokens(self, text: str, language) -> List[ParsedToken]:
+    def get_parsed_tokens(self, text: str, language) -> list[ParsedToken]:
         "Return parsed tokens."
 
         # Remove extra spaces.
@@ -206,7 +206,7 @@ class SpaceDelimitedParser(AbstractParser):
 
         return tokens
 
-    def parse_para(self, text: str, lang, tokens: List[ParsedToken]):
+    def parse_para(self, text: str, lang, tokens: list[ParsedToken]):
         """
         Parse a string, appending the tokens to the list of tokens.
         """

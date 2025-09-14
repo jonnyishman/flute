@@ -10,9 +10,11 @@ Includes classes:
 
 """
 
+from __future__ import annotations
+
 import re
-from typing import List
-from lute.parse.base import ParsedToken, AbstractParser
+
+from src.parse.base import AbstractParser, ParsedToken
 
 
 class ClassicalChineseParser(AbstractParser):
@@ -25,7 +27,7 @@ class ClassicalChineseParser(AbstractParser):
     def name(cls):
         return "Classical Chinese"
 
-    def get_parsed_tokens(self, text: str, language) -> List[ParsedToken]:
+    def get_parsed_tokens(self, text: str, language) -> list[ParsedToken]:
         """
         Returns ParsedToken array for given language.
         """

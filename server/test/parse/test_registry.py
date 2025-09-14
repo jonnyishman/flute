@@ -4,14 +4,14 @@ Parser registry tests.
 
 import pytest
 
-from lute.parse.registry import (
+from src.parse.registry import (
     __LUTE_PARSERS__,
     get_parser,
-    supported_parsers,
-    supported_parser_types,
     is_supported,
+    supported_parser_types,
+    supported_parsers,
 )
-from lute.parse.space_delimited_parser import SpaceDelimitedParser
+from src.parse.space_delimited_parser import SpaceDelimitedParser
 
 
 def test_get_parser_by_name():

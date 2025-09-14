@@ -4,14 +4,15 @@ Parser registry.
 List of available parsers.
 """
 
+from __future__ import annotations
+
 from importlib.metadata import entry_points
 from sys import version_info
 
-from lute.parse.base import AbstractParser
-from lute.parse.space_delimited_parser import SpaceDelimitedParser, TurkishParser
-from lute.parse.mecab_parser import JapaneseParser
-from lute.parse.character_parser import ClassicalChineseParser
-
+from src.parse.base import AbstractParser
+from src.parse.character_parser import ClassicalChineseParser
+from src.parse.mecab_parser import JapaneseParser
+from src.parse.space_delimited_parser import SpaceDelimitedParser, TurkishParser
 
 __LUTE_PARSERS__ = {
     "spacedel": SpaceDelimitedParser,
@@ -84,4 +85,4 @@ def supported_parser_types():
     """
     List of supported Language.parser_types
     """
-    return list(a[0] for a in supported_parsers())
+    return [a[0] for a in supported_parsers()]

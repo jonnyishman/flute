@@ -10,15 +10,17 @@ Includes classes:
 
 """
 
-from io import StringIO
-import sys
+from __future__ import annotations
+
 import os
 import re
-from typing import List
-from natto import MeCab
+import sys
+from io import StringIO
+
 import jaconv
-from lute.parse.base import ParsedToken, AbstractParser
-from lute.settings.current import current_settings
+from natto import MeCab
+
+from src.parse.base import AbstractParser, ParsedToken
 
 
 class JapaneseParser(AbstractParser):
@@ -43,7 +45,7 @@ class JapaneseParser(AbstractParser):
         otherwise false.
         """
 
-        mecab_path = current_settings.get("mecab_path", "") or ""
+        mecab_path = os.environ.get("MECAB_PATH", "").strip()
         mecab_path = mecab_path.strip()
         path_unchanged = mecab_path == JapaneseParser._old_mecab_path
         if path_unchanged and JapaneseParser._is_supported is not None:
@@ -65,7 +67,7 @@ class JapaneseParser(AbstractParser):
             sys.stderr = temp_err
             MeCab()
             mecab_works = True
-        except:  # pylint: disable=bare-except
+        except Exception:  # pylint: disable=bare-except
             mecab_works = False
         finally:
             sys.stderr = sys.__stderr__
@@ -78,7 +80,7 @@ class JapaneseParser(AbstractParser):
     def name(cls):
         return "Japanese"
 
-    def get_parsed_tokens(self, text: str, language) -> List[ParsedToken]:
+    def get_parsed_tokens(self, text: str, language) -> list[ParsedToken]:
         "Parse the string using MeCab."
         text = re.sub(r"[ \t]+", " ", text).strip()
 
@@ -143,7 +145,7 @@ class JapaneseParser(AbstractParser):
         if self._string_is_hiragana(text):
             return None
 
-        jp_reading_setting = current_settings.get("japanese_reading", "").strip()
+        jp_reading_setting = os.environ.get("JAPANESE_READING", "").strip()
         if jp_reading_setting == "":
             # Don't set reading if nothing specified.
             return None

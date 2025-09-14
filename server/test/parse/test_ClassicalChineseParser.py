@@ -2,7 +2,8 @@
 JapaneseParser tests.
 """
 
-from lute.parse.base import ParsedToken
+
+from src.parse.base import ParsedToken
 
 
 def assert_tokens_equals(text, lang, expected):

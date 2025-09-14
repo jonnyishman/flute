@@ -2,8 +2,9 @@
 Common classes use for all parsing.
 """
 
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
-from typing import List
 
 
 class ParsedToken:
@@ -101,7 +102,7 @@ class AbstractParser(ABC):
         """
 
     @abstractmethod
-    def get_parsed_tokens(self, text: str, language) -> List:
+    def get_parsed_tokens(self, text: str, language) -> list[ParsedToken]:
         """
         Get an array of ParsedTokens from the input text for the given language.
         """

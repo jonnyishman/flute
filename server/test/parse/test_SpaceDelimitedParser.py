@@ -2,11 +2,12 @@
 SpaceDelimitedParser tests.
 """
 
-import sys
 import re
+import sys
 import unicodedata
-from lute.parse.space_delimited_parser import SpaceDelimitedParser
-from lute.parse.base import ParsedToken
+
+from src.parse.base import ParsedToken
+from src.parse.space_delimited_parser import SpaceDelimitedParser
 
 
 def assert_tokens_equals(text, lang, expected):
