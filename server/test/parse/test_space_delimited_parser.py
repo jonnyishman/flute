@@ -277,7 +277,7 @@ def test_default_word_pattern_gothic(generic: Language):
 
 def test_all_chars_in_categories_match_default_word_chars():
     "Default_word_chars builds a range of characters ... ensure chars in categories are all found."
-    categories = set(["Cf", "Ll", "Lm", "Lo", "Lt", "Lu", "Mc", "Mn", "Sk"])
+    categories = {"Cf", "Ll", "Lm", "Lo", "Lt", "Lu", "Mc", "Mn", "Sk"}
 
     word_chars = SpaceDelimitedParser.get_default_word_characters()
     pattern = rf"[{word_chars}]"

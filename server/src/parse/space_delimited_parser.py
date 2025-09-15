@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING
 from src.parse.base import AbstractParser, ParsedToken
 
 if TYPE_CHECKING:
-    from src.models.language import Language 
+    from src.models.language import Language
 
 
 class SpaceDelimitedParser(AbstractParser):

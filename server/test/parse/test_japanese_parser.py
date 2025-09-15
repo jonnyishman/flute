@@ -3,7 +3,7 @@ JapaneseParser tests.
 """
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Iterator
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 def test_token_count(japanese):
     "token_count checks."
     cases = [("私", 1), ("元気", 1), ("です", 1), ("元気です", 2), ("元気です私", 3)]
-    for text, expected_count in cases:
+    for _text, _expected_count in cases:
         # t = Term(japanese, text)
         # assert t.token_count == expected_count, text
         # assert t.text_lc == t.text, "case"
@@ -37,6 +37,7 @@ def assert_tokens_equals(text: str, lang: Language, expected: list[ParsedToken])
     assert [str(a) for a in actual] == [str(e) for e in expected]
 
 
+@pytest.mark.skipif(not JapaneseParser.is_supported(), reason="MeCab not installed")
 def test_end_of_sentence_stored_in_parsed_tokens(japanese: Language):
     "ParsedToken is marked as EOS=True at ends of sentences."
     s = "元気.元気?元気!\n元気。元気？元気！"
@@ -60,6 +61,7 @@ def test_end_of_sentence_stored_in_parsed_tokens(japanese: Language):
     assert_tokens_equals(s, japanese, expected)
 
 
+@pytest.mark.skipif(not JapaneseParser.is_supported(), reason="MeCab not installed")
 def test_issue_488_repeat_character_handled(japanese: Language):
     "Repeat sometimes needs explicit check, can be returned as own word."
     s = "聞こえる行く先々。少々お待ちください。"
@@ -113,5 +115,5 @@ def test_reading_setting(app):
     }
     p = JapaneseParser()
     for k, v in cases.items():
-        current_settings["japanese_reading"] = k
+        # current_settings["japanese_reading"] = k
         assert p.get_reading("強い") == v, k

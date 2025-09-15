@@ -1,13 +1,12 @@
 """Common classes used for all parsing."""
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from src.models.language import Language 
+    from src.models.language import Language
 
 
 @dataclass(frozen=True)
@@ -52,10 +51,12 @@ class AbstractParser(ABC):
 
     @classmethod
     def init_data_directory(cls) -> None:
-        """Initialize the data_directory if needed.
+        """
+        Initialize the data_directory if needed.
 
         Not necessary for all parsers.
         """
+        pass
 
     @classmethod
     def is_supported(cls) -> bool:
@@ -74,12 +75,6 @@ class AbstractParser(ABC):
     @abstractmethod
     def get_parsed_tokens(self, text: str, language: Language) -> list[ParsedToken]:
         """Get an array of ParsedTokens from the input text for the given language."""
-
-    def get_reading(self, text: str) -> str | None:
-        """Get the pronunciation for the given text.
-
-        For most languages, this can't be automated.
-        """
 
     def get_lowercase(self, text: str) -> str:
         """Return the lowercase text.

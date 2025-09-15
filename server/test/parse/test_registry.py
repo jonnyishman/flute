@@ -2,9 +2,11 @@
 Parser registry tests.
 """
 
-import pytest
 from collections.abc import Iterator
 
+import pytest
+
+from src.parse.base import AbstractParser
 from src.parse.registry import (
     FLUTE_PARSERS,
     get_parser,
@@ -12,7 +14,6 @@ from src.parse.registry import (
     supported_parser_types,
     supported_parsers,
 )
-from src.parse.base import AbstractParser
 from src.parse.space_delimited_parser import SpaceDelimitedParser
 
 
@@ -33,7 +34,7 @@ def fixture_load_dummy() -> Iterator[None]:
     FLUTE_PARSERS["dummy"] = DummyParser
     try:
         yield
-    except:
+    except Exception:
         del FLUTE_PARSERS["dummy"]
 
 
