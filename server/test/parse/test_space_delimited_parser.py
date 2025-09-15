@@ -1,16 +1,21 @@
 """
 SpaceDelimitedParser tests.
 """
+from __future__ import annotations
 
 import re
 import sys
 import unicodedata
+from typing import TYPE_CHECKING
 
 from src.parse.base import ParsedToken
 from src.parse.space_delimited_parser import SpaceDelimitedParser
 
+if TYPE_CHECKING:
+    from src.models.language import Language
 
-def assert_tokens_equals(text, lang, expected):
+
+def assert_tokens_equals(text: str, lang: Language, expected: list[ParsedToken]):
     """
     Parsing a text using a language should give the expected parsed tokens.
 
@@ -19,11 +24,10 @@ def assert_tokens_equals(text, lang, expected):
     """
     p = SpaceDelimitedParser()
     actual = p.get_parsed_tokens(text, lang)
-    expected = [ParsedToken(*a) for a in expected]
     assert [str(a) for a in actual] == [str(e) for e in expected]
 
 
-def assert_string_equals(text, lang, expected):
+def assert_string_equals(text: str, lang: Language, expected: str):
     """
     Parsing a text with a language's settings should yield tokens.
 
@@ -45,22 +49,22 @@ def assert_string_equals(text, lang, expected):
     assert to_string(actual) == expected
 
 
-def test_end_of_sentence_stored_in_parsed_tokens(spanish):
+def test_end_of_sentence_stored_in_parsed_tokens(spanish: Language):
     "ParsedToken is marked as EOS=True at ends of sentences."
     s = "Tengo un gato.\nTengo dos."
 
     expected = [
-        ("Tengo", True, False),
-        (" ", False, False),
-        ("un", True, False),
-        (" ", False, False),
-        ("gato", True, False),
-        (".", False, True),
-        ("¶", False, True),
-        ("Tengo", True, False),
-        (" ", False, False),
-        ("dos", True, False),
-        (".", False, True),
+        ParsedToken("Tengo", True, False),
+        ParsedToken(" ", False, False),
+        ParsedToken("un", True, False),
+        ParsedToken(" ", False, False),
+        ParsedToken("gato", True, False),
+        ParsedToken(".", False, True),
+        ParsedToken("¶", False, True),
+        ParsedToken("Tengo", True, False),
+        ParsedToken(" ", False, False),
+        ParsedToken("dos", True, False),
+        ParsedToken(".", False, True),
     ]
 
     assert_tokens_equals(s, spanish, expected)
@@ -71,39 +75,39 @@ def test_exceptions_are_considered_when_splitting_sentences(english):
     s = "1. Mrs. Jones is here."
 
     expected = [
-        ("1. ", False, True),
-        ("Mrs.", True, False),
-        (" ", False, False),
-        ("Jones", True, False),
-        (" ", False, False),
-        ("is", True, False),
-        (" ", False, False),
-        ("here", True, False),
-        (".", False, True),
+        ParsedToken("1. ", False, True),
+        ParsedToken("Mrs.", True, False),
+        ParsedToken(" ", False, False),
+        ParsedToken("Jones", True, False),
+        ParsedToken(" ", False, False),
+        ParsedToken("is", True, False),
+        ParsedToken(" ", False, False),
+        ParsedToken("here", True, False),
+        ParsedToken(".", False, True),
     ]
 
     assert_tokens_equals(s, english, expected)
 
 
-def test_single_que(spanish):
+def test_single_que(spanish: Language):
     """
     Sanity check: que with accent was getting mishandled.
     """
     text = "Tengo que y qué."
     expected = [
-        ("Tengo", True, False),
-        (" ", False, False),
-        ("que", True, False),
-        (" ", False, False),
-        ("y", True, False),
-        (" ", False, False),
-        ("qué", True, False),
-        (".", False, True),
+        ParsedToken("Tengo", True, False),
+        ParsedToken(" ", False, False),
+        ParsedToken("que", True, False),
+        ParsedToken(" ", False, False),
+        ParsedToken("y", True, False),
+        ParsedToken(" ", False, False),
+        ParsedToken("qué", True, False),
+        ParsedToken(".", False, True),
     ]
     assert_tokens_equals(text, spanish, expected)
 
 
-def test_EE_UU_exception_should_be_considered(spanish):
+def test_EE_UU_exception_should_be_considered(spanish: Language):
     """
     An exception containing multiple dots should be one single token.
     """
@@ -111,32 +115,32 @@ def test_EE_UU_exception_should_be_considered(spanish):
     spanish.exceptions_split_sentences = "EE.UU."
 
     expected = [
-        ("Estamos", True, False),
-        (" ", False, False),
-        ("en", True, False),
-        (" ", False, False),
-        ("EE.UU.", True, False),
-        (" ", False, False),
-        ("hola", True, False),
-        (".", False, True),
+        ParsedToken("Estamos", True, False),
+        ParsedToken(" ", False, False),
+        ParsedToken("en", True, False),
+        ParsedToken(" ", False, False),
+        ParsedToken("EE.UU.", True, False),
+        ParsedToken(" ", False, False),
+        ParsedToken("hola", True, False),
+        ParsedToken(".", False, True),
     ]
 
     assert_tokens_equals(s, spanish, expected)
 
 
-def test_just_EE_UU(spanish):
+def test_just_EE_UU(spanish: Language):
     """
     A sentence of a single word, where that word is an exception, should be a single token.
     """
     s = "EE.UU."
     spanish.exceptions_split_sentences = "EE.UU."
     expected = [
-        ("EE.UU.", True, False),
+        ParsedToken("EE.UU.", True, False),
     ]
     assert_tokens_equals(s, spanish, expected)
 
 
-def test_quick_checks(english):
+def test_quick_checks(english: Language):
     "Fast sanity checks."
     assert_string_equals("test", english, "[test]")
     assert_string_equals("test.", english, "[test].")
@@ -151,7 +155,7 @@ def test_quick_checks(english):
     assert_string_equals("1234.Hello", english, "1234.[Hello]")
 
 
-def test_zero_width_non_joiner_retained(german):
+def test_zero_width_non_joiner_retained(german: Language):
     """
     Verify zero-width joiner characters are retained in languages that
     include them as word characters.
@@ -162,7 +166,7 @@ def test_zero_width_non_joiner_retained(german):
     assert_string_equals("Brot\u200czeit", german, "[Brot\u200czeit]")
 
 
-def test_zero_width_joiner_retained(hindi):
+def test_zero_width_joiner_retained(hindi: Language):
     """
     Verify zero-width joiner characters are retained in languages that
     include them as word characters.
@@ -174,7 +178,7 @@ def test_zero_width_joiner_retained(hindi):
     assert_string_equals("नमस\u200dते", hindi, "[नमस\u200dते]")
 
 
-def test_default_word_pattern_latin(generic):
+def test_default_word_pattern_latin(generic: Language):
     """
     Verify the default word pattern handles Latin alphabets (0000..00FF).
     """
@@ -202,7 +206,7 @@ def test_default_word_pattern_latin(generic):
     )
 
 
-def test_default_word_pattern_devanagari(generic):
+def test_default_word_pattern_devanagari(generic: Language):
     """
     Verify the default word pattern handles the Devanagari Unicode block (0900..097F).
     """
@@ -233,7 +237,7 @@ def test_default_word_pattern_devanagari(generic):
     )
 
 
-def test_default_word_pattern_georgian(generic):
+def test_default_word_pattern_georgian(generic: Language):
     """
     Verify the default word pattern handles the Georgian Unicode block (10A0..10FF).
     """
@@ -259,7 +263,7 @@ def test_default_word_pattern_georgian(generic):
     )
 
 
-def test_default_word_pattern_gothic(generic):
+def test_default_word_pattern_gothic(generic: Language):
     """
     Verify the default word pattern handles the Gothic Unicode block (10330..1034F).
     This is an import test case because it tests larger Unicode values.

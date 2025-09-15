@@ -1,14 +1,12 @@
 """
 TurkishParser tests.
 """
+from __future__ import annotations
 
-import pytest
-
-# from src.models.term import Term
+from src.parse.space_delimited_parser import TurkishParser
 
 
-@pytest.mark.skip(reason="Term model not available in this codebase")
-def test_downcase(turkish):
+def test_downcase() -> None:
     "Turkish has problematic 'i' variants."
     cases = [
         ("CAT", "cat"),  # dummy case
@@ -19,6 +17,4 @@ def test_downcase(turkish):
     ]
 
     for text, expected_lcase in cases:
-        # t = Term(turkish, text)
-        # assert t.text_lc == expected_lcase, text
-        pass
+        assert TurkishParser().get_lowercase(text) == expected_lcase

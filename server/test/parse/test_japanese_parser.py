@@ -1,11 +1,17 @@
 """
 JapaneseParser tests.
 """
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Iterator
 
 import pytest
 
 from src.parse.base import ParsedToken
 from src.parse.mecab_parser import JapaneseParser
+
+if TYPE_CHECKING:
+    from src.models.language import Language
 
 
 @pytest.mark.skip(reason="Term model not available in this codebase")
@@ -19,7 +25,7 @@ def test_token_count(japanese):
         pass
 
 
-def assert_tokens_equals(text, lang, expected):
+def assert_tokens_equals(text: str, lang: Language, expected: list[ParsedToken]) -> None:
     """
     Parsing a text using a language should give the expected parsed tokens.
 
@@ -28,47 +34,46 @@ def assert_tokens_equals(text, lang, expected):
     """
     p = JapaneseParser()
     actual = p.get_parsed_tokens(text, lang)
-    expected = [ParsedToken(*a) for a in expected]
     assert [str(a) for a in actual] == [str(e) for e in expected]
 
 
-def test_end_of_sentence_stored_in_parsed_tokens(japanese):
+def test_end_of_sentence_stored_in_parsed_tokens(japanese: Language):
     "ParsedToken is marked as EOS=True at ends of sentences."
     s = "元気.元気?元気!\n元気。元気？元気！"
 
     expected = [
-        ("元気", True),
-        (".", False, True),
-        ("元気", True),
-        ("?", False, True),
-        ("元気", True),
-        ("!", False, True),
-        ("¶", False, True),
-        ("元気", True),
-        ("。", False, True),
-        ("元気", True),
-        ("？", False, True),
-        ("元気", True),
-        ("！", False, True),
-        ("¶", False, True),
+        ParsedToken("元気", True),
+        ParsedToken(".", False, True),
+        ParsedToken("元気", True),
+        ParsedToken("?", False, True),
+        ParsedToken("元気", True),
+        ParsedToken("!", False, True),
+        ParsedToken("¶", False, True),
+        ParsedToken("元気", True),
+        ParsedToken("。", False, True),
+        ParsedToken("元気", True),
+        ParsedToken("？", False, True),
+        ParsedToken("元気", True),
+        ParsedToken("！", False, True),
+        ParsedToken("¶", False, True),
     ]
     assert_tokens_equals(s, japanese, expected)
 
 
-def test_issue_488_repeat_character_handled(japanese):
+def test_issue_488_repeat_character_handled(japanese: Language):
     "Repeat sometimes needs explicit check, can be returned as own word."
     s = "聞こえる行く先々。少々お待ちください。"
 
     expected = [
-        ("聞こえる", True),
-        ("行く先", True),
-        ("々", True),
-        ("。", False, True),
-        ("少々", True),
-        ("お待ち", True),
-        ("ください", True),
-        ("。", False, True),
-        ("¶", False, True),
+        ParsedToken("聞こえる", True),
+        ParsedToken("行く先", True),
+        ParsedToken("々", True),
+        ParsedToken("。", False, True),
+        ParsedToken("少々", True),
+        ParsedToken("お待ち", True),
+        ParsedToken("ください", True),
+        ParsedToken("。", False, True),
+        ParsedToken("¶", False, True),
     ]
     assert_tokens_equals(s, japanese, expected)
 
