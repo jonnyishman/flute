@@ -37,6 +37,12 @@ class Language(db.Model, AuditMixin):
         cascade="all, delete-orphan",
     )
 
+    @property
+    def parser(self):
+        """Get parser instance for this language."""
+        from src.parse.registry import get_parser
+        return get_parser(self.parser_type)
+
     def __repr__(self) -> str:
         return f"<Language {self.id} '{self.name}'>"
 

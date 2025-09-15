@@ -20,6 +20,8 @@ dependencies = [
     "pydantic-settings>=2.0.0",
     "python-dotenv>=1.0.0",
     "more_itertools>=10.0.0",
+    "jaconv>=0.4.0",
+    "natto-py>=1.0.0",
 ]
 
 [project.optional-dependencies]
@@ -52,6 +54,7 @@ ignore = [
     "B008",   # do not perform function calls in argument defaults
     "ARG001", # unused function argument (common in Flask routes)
     "TC003",  # type-checking block doesn't work well with sqlalchemy declarative mapping
+    "B027",   # sometimes empty methods are fine
 ]
 
 [tool.ruff.lint.per-file-ignores]
