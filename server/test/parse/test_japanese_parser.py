@@ -43,20 +43,20 @@ def test_end_of_sentence_stored_in_parsed_tokens(japanese: Language):
     s = "元気.元気?元気!\n元気。元気？元気！"
 
     expected = [
-        ParsedToken("元気", True),
-        ParsedToken(".", False, True),
-        ParsedToken("元気", True),
-        ParsedToken("?", False, True),
-        ParsedToken("元気", True),
-        ParsedToken("!", False, True),
-        ParsedToken("¶", False, True),
-        ParsedToken("元気", True),
-        ParsedToken("。", False, True),
-        ParsedToken("元気", True),
-        ParsedToken("？", False, True),
-        ParsedToken("元気", True),
-        ParsedToken("！", False, True),
-        ParsedToken("¶", False, True),
+        ParsedToken("元気", "元気", True),
+        ParsedToken(".", "。", False, True),
+        ParsedToken("元気", "元気", True),
+        ParsedToken("?", "？", False, True),
+        ParsedToken("元気", "元気", True),
+        ParsedToken("!", "！", False, True),
+        ParsedToken("¶", "¶", False, True),
+        ParsedToken("元気", "元気", True),
+        ParsedToken("。", "。", False, True),
+        ParsedToken("元気", "元気", True),
+        ParsedToken("？", "？", False, True),
+        ParsedToken("元気", "元気", True),
+        ParsedToken("！", "！", False, True),
+        ParsedToken("¶", "¶", False, True),
     ]
     assert_tokens_equals(s, japanese, expected)
 
@@ -67,15 +67,15 @@ def test_issue_488_repeat_character_handled(japanese: Language):
     s = "聞こえる行く先々。少々お待ちください。"
 
     expected = [
-        ParsedToken("聞こえる", True),
-        ParsedToken("行く先", True),
-        ParsedToken("々", True),
-        ParsedToken("。", False, True),
-        ParsedToken("少々", True),
-        ParsedToken("お待ち", True),
-        ParsedToken("ください", True),
-        ParsedToken("。", False, True),
-        ParsedToken("¶", False, True),
+        ParsedToken("聞こえる", "聞こえる", True),
+        ParsedToken("行く先", "行く先", True),
+        ParsedToken("々", "々", True),
+        ParsedToken("。", "。", False, True),
+        ParsedToken("少々", "少々", True),
+        ParsedToken("お待ち", "お待ち", True),
+        ParsedToken("ください", "ください", True),
+        ParsedToken("。", "。", False, True),
+        ParsedToken("¶", "¶", False, True),
     ]
     assert_tokens_equals(s, japanese, expected)
 

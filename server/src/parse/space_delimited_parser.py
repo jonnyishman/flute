@@ -189,7 +189,7 @@ class SpaceDelimitedParser(AbstractParser):
         for i, para in enumerate(paras):
             tokens.extend(self.parse_para(para, lang))
             if i < len(paras) - 1:
-                tokens.append(ParsedToken("¶", False, True))
+                tokens.append(ParsedToken("¶", "¶", False, True))
 
         return tokens
 
@@ -207,26 +207,26 @@ class SpaceDelimitedParser(AbstractParser):
 
         tokens: list[ParsedToken] = []
 
-        def add_non_words(s: str) -> None:
+        def add_non_words(token: str) -> None:
             """Add non-word token s to the list of tokens.
 
             If s matches any of the split_sentence values, mark it as an
             end-of-sentence.
             """
-            if not s:
+            if not token:
                 return
 
             splitchar = (lang.regexp_split_sentences.strip() or
                         self.get_default_regexp_split_sentences())
             pattern = f"[{re.escape(splitchar)}]"
             has_eos = bool(pattern != "[]" and
-                          self.preg_match_capture(pattern, s))
-            tokens.append(ParsedToken(s, False, has_eos))
+                          self.preg_match_capture(pattern, token))
+            tokens.append(ParsedToken(token, self.get_lowercase(token), False, has_eos))
 
         pos = 0
         for word_token, word_pos in wordtoks:
             add_non_words(text[pos:word_pos])
-            tokens.append(ParsedToken(word_token, True, False))
+            tokens.append(ParsedToken(word_token, self.get_lowercase(word_token), True, False))
             pos = word_pos + len(word_token)
         # Add anything left over
         add_non_words(text[pos:])

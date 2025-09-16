@@ -9,7 +9,7 @@ if TYPE_CHECKING:
     from src.models.language import Language
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class ParsedToken:
     """A single parsed token from an input text.
 
@@ -17,7 +17,8 @@ class ParsedToken:
     assigned to the ParsedToken and then incremented appropriately.
     """
 
-    token: str
+    token: str # original form as found in the text
+    norm: str  # normalised form for storage and searching
     is_word: bool
     is_end_of_sentence: bool = False
 
@@ -32,6 +33,9 @@ class ParsedToken:
             f"eos: {self.is_end_of_sentence}",
         ]
         return f'<"{self.token}" ({", ".join(attrs)})>'
+
+    def __hash__(self) -> int:
+        return hash(self.norm)
 
 
 class AbstractParser(ABC):

@@ -45,6 +45,6 @@ class ClassicalChineseParser(AbstractParser):
             is_word_char = bool(re.match(pattern, char))
             is_end_of_sentence = (char in language.regexp_split_sentences or
                                 char == "¶")
-            tokens.append(ParsedToken(char, is_word_char, is_end_of_sentence))
+            tokens.append(ParsedToken(char, char, is_word_char, is_end_of_sentence))
 
         return tokens

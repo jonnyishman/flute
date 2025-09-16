@@ -1,5 +1,5 @@
 """API routes for book-related operations"""
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
 import sqlalchemy as sa
 from flask import abort
@@ -10,7 +10,11 @@ from sqlalchemy.dialects.sqlite import insert
 from sqlalchemy.exc import IntegrityError
 
 from src.api.routes import api_bp
-from src.models import Book, BookTotals, BookVocab, Chapter, Token, TokenKind, db
+from src.models import Book, BookTotals, BookVocab, Chapter, Language, Term, db
+from src.parse.registry import get_parser
+
+if TYPE_CHECKING:
+    from src.parse.base import ParsedToken
 
 
 class CreateBookRequest(BaseModel):
@@ -29,19 +33,6 @@ class CreateBookResponse(BaseModel):
     book_id: int
 
 
-# Super basic for now, will replace with proper ones later
-def tokenise_and_count(context: str) -> dict[str, int]:
-    """Tokenises the given context and returns a word count dictionary."""
-    # Simple whitespace tokenizer; replace with a more sophisticated one if needed
-    tokens = context.split()
-    word_count: dict[str, int] = {}
-    for token in tokens:
-        token = token.lower().strip(".,!?;:\"'()[]{}")
-        if token:
-            word_count[token] = word_count.get(token, 0) + 1
-    return word_count
-
-
 @api_bp.route("/books", methods=["POST"])
 @validate()
 def create_book(body: CreateBookRequest) -> tuple[CreateBookResponse, int]:
@@ -49,13 +40,29 @@ def create_book(body: CreateBookRequest) -> tuple[CreateBookResponse, int]:
     Creates a new book with chapters, builds token directionary, populates inverted index
     and per-book totals.
     """
+    # Check language exists and grab parser
+    if not (language := db.session.get(Language, body.language_id)):
+        abort(404, description=f"invalid language_id: '{body.language_id}'")
+
+    try:
+        parser = get_parser(language.parser_type)
+    except ValueError as exc:
+        abort(400, description=str(exc))
+
     # Tokenise chapters and compute word counts
-    chapter_token_counts = [tokenise_and_count(chapter) for chapter in body.chapters]
-    chapter_word_counts = [sum(counts.values()) for counts in chapter_token_counts]
-    book_token_counts = {}
-    for counts in chapter_token_counts:
+    chapter_term_counts: list[dict[ParsedToken, int]] = []
+    for chapter in body.chapters:
+        parsed_tokens = parser.get_parsed_tokens(chapter.strip(), language)
+        term_counts: dict[ParsedToken, int] = {}
+        for token in parsed_tokens:
+            if token.is_word:
+                term_counts[token] = term_counts.get(token, 0) + 1
+        chapter_term_counts.append(term_counts)
+
+    book_term_counts: dict[ParsedToken, int] = {}
+    for counts in chapter_term_counts:
         for token, count in counts.items():
-            book_token_counts[token] = book_token_counts.get(token, 0) + count
+            book_term_counts[token] = book_term_counts.get(token, 0) + count
 
     # Insert book, get book ID
     insert_book_stmt = insert(Book).values(
@@ -78,51 +85,52 @@ def create_book(body: CreateBookRequest) -> tuple[CreateBookResponse, int]:
             "book_id": book_id,
             "chapter_number": i,
             "content": content,
-            "word_count": word_count,
+            "word_count": sum(term_counts.values()),
         }
-        for i, (content, word_count)
-        in enumerate(zip(body.chapters, chapter_word_counts, strict=True), start=1)
+        for i, (content, term_counts)
+        in enumerate(zip(body.chapters, chapter_term_counts, strict=True), start=1)
     ]
     if params:  # Only insert if there are chapters
         db.session.execute(insert(Chapter), params)
 
     # Upsert tokens into the global token table, chunked to avoid too many parameters
-    all_tokens = list(book_token_counts.keys())
-    stmt = insert(Token).on_conflict_do_nothing(index_elements=["language_id", "norm"])
+    all_tokens = list(book_term_counts.keys())
+    stmt = insert(Term).on_conflict_do_nothing(index_elements=["language_id", "norm"])
     for chunk in chunked(all_tokens, 500):
         params = [
             {
                 "language_id": body.language_id,
-                "norm": token,
-                "kind": TokenKind.WORD.value,
+                "norm": token.norm,
+                "display": token.token,
+                "token_count": 1,
             }
             for token in chunk
         ]
         db.session.execute(stmt, params)
 
     # Get mapping of token norms to IDs
-    # TODO: see if this can be replaced with RETURNING in the insert above
-    token_to_id: dict[str, int] = {}
+    term_to_id: dict[str, int] = {}
     for chunk in chunked(all_tokens, 500):
         rows = db.session.execute(
-            sa.select(Token.id, Token.norm).where(
-                Token.language_id == body.language_id,
-                Token.norm.in_(chunk)
+            sa.select(Term.id, Term.norm).where(
+                Term.language_id == body.language_id,
+                Term.norm.in_(token.norm for token in chunk)
             )
         ).all()
-        token_to_id.update({norm: id for id, norm in rows})
+        term_to_id.update({norm: id for id, norm in rows})
 
     # Build inverted index for book
     params = [
-        {"book_id": book_id, "token_id": token_to_id[token], "token_count": count}
-        for token, count in book_token_counts.items()
+        {"book_id": book_id, "term_id": term_id, "term_count": count}
+        for term, count in book_term_counts.items()
+        if (term_id := term_to_id.get(term.norm))
     ]
     for chunk in chunked(params, 500):
         db.session.execute(insert(BookVocab), chunk)
 
     # Upsert per-book totals
-    total_tokens = sum(book_token_counts.values())
-    total_types = len(book_token_counts)
+    total_tokens = sum(book_term_counts.values())
+    total_types = len(book_term_counts)
     db.session.execute(BookTotals.upsert_stmt(book_id, total_tokens, total_types))
 
     db.session.commit()
