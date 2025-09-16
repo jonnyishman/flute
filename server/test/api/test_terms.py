@@ -52,6 +52,42 @@ class TestCreateTermEndpoint:
         assert progress.learning_stage == 1  # default value
         assert progress.translation is None
 
+    def test_multiterm(self, client: FlaskClient, english: Language) -> None:
+        """Test successful term creation with minimal required fields."""
+        # Given
+        request_data = {
+            "term": "Hello you.",
+            "language_id": english.id,
+            "status": LearningStatus.LEARNING,
+            "learning_stage": 1  # explicit default
+        }
+
+        # When
+        response = client.post("/api/terms", json=request_data)
+
+        # Then
+        assert response.status_code == 200
+        response_data = response.json
+        assert "term_id" in response_data
+        term_id = response_data["term_id"]
+
+        # Verify term was created
+        term = db.session.execute(
+            sa.select(Term).where(Term.id == term_id)
+        ).scalar_one()
+        assert term.norm == "hello you."
+        assert term.display == "Hello you."
+        assert term.language_id == english.id
+        assert term.token_count == 2
+
+        # Verify term progress was created
+        progress = db.session.execute(
+            sa.select(TermProgress).where(TermProgress.term_id == term_id)
+        ).scalar_one()
+        assert progress.status == LearningStatus.LEARNING
+        assert progress.learning_stage == 1  # default value
+        assert progress.translation is None
+
     def test_create_term_success_all_fields(self, client: FlaskClient, english: Language) -> None:
         """Test successful term creation with all fields provided."""
         # Given

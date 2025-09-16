@@ -49,18 +49,20 @@ def create_term(body: CreateTerm) -> TermId:
     stmt = insert(Term).values({
         "language_id": body.language_id,
         "norm": norm,
-        "token_count": 1,
+        "token_count": parser.get_token_count(norm, language),
         "display": body.display if body.display is not None else body.term,
     })
 
-    # Allow for cases where term does actually already exist
     if body.display is not None:
-        stmt = stmt.on_conflict_do_update(index_elements=["language_id", "norm"], set_={"display": body.display}).returning(Term.id)
+        stmt = stmt.on_conflict_do_update(
+            index_elements=["language_id", "norm"], set_={"display": body.display}
+        ).returning(Term.id)
         term_id = db.session.execute(stmt).scalar_one()
     else:
+        # Allow for edge cases where term does actually already exist
         stmt = stmt.on_conflict_do_nothing(index_elements=["language_id", "norm"]).returning(Term.id)
-        # RETURNING doesn't return anything if no actual insertion, so extra fetch required
         if (term_id := db.session.execute(stmt).scalar_one_or_none()) is None:
+            # RETURNING doesn't return anything if no actual insertion, so extra fetch required
             term_id = db.session.execute(
                 sa.select(Term.id).where(Term.language_id == body.language_id, Term.norm == norm)
             ).scalar_one()
@@ -79,10 +81,9 @@ def update_term(term_id: int, body: UpdateTerm) -> tuple[str, int]:
     if not (term := db.session.get(Term, term_id)):
         abort(404, description=f"invalid term_id: '{term_id}'")
 
-    parser = get_parser(term.language.parser_type)
-
     # Display changes only allowed if the normalised form is unchanged
     if body.display is not None:
+        parser = get_parser(term.language.parser_type)
         if parser.get_lowercase(body.display) != term.norm:
             abort(400, description="display must match the term's normalized form")
         term.display = body.display
@@ -101,6 +102,8 @@ def upsert_term_progress(term_id: int, request: UpdateTerm) -> None:
     if request.translation is not None:
         params["translation"] = request.translation
 
-    stmt = insert(TermProgress)
-    stmt = stmt.on_conflict_do_update(index_elements=[TermProgress.term_id], set_=params)
-    db.session.execute(stmt, params)
+    db.session.execute(
+        insert(TermProgress)
+        .values(params)
+        .on_conflict_do_update(index_elements=[TermProgress.term_id], set_=params)
+    )

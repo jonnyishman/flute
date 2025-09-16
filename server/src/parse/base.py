@@ -80,6 +80,10 @@ class AbstractParser(ABC):
     def get_parsed_tokens(self, text: str, language: Language) -> list[ParsedToken]:
         """Get an array of ParsedTokens from the input text for the given language."""
 
+    def get_token_count(self, text: str, language: Language) -> int:
+        """Get the number of word tokens in the input text for the given language."""
+        return sum(1 for token in self.get_parsed_tokens(text, language) if token.is_word)
+
     def get_lowercase(self, text: str) -> str:
         """Return the lowercase text.
 
