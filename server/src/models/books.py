@@ -83,7 +83,7 @@ class Term(db.Model):
     token_count: Mapped[int] = mapped_column(SmallInteger, nullable=False)
 
     # Relationships
-    language = relationship(Language)
+    language: Mapped[Language] = relationship(Language)
 
 
 class BookVocab(db.Model):
