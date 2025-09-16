@@ -14,9 +14,8 @@ from src.models.books import (
     BookVocab,
     Chapter,
     LearningStatus,
-    Token,
-    TokenKind,
-    TokenProgress,
+    Term,
+    TermProgress,
 )
 from src.models.language import Language
 
@@ -153,110 +152,69 @@ class TestChapterModel:
             db.session.commit()
 
 
-class TestTokenModel:
-    """Test cases for Token model."""
+class TestTermModel:
+    """Test cases for Term model."""
 
-    def test_create_token_word(self, app: Flask):
-        """Test creating a word token."""
+    def test_create_Term_word(self, english: Language):
+        """Test creating a word Term."""
         # Given
-        language = Language(name="English")
-        token = Token(language=language, norm="hello", kind=TokenKind.WORD)
+        term = Term(language=english, norm="hello", display="Hello", token_count=1)
 
         # When
-        db.session.add_all([language, token])
+        db.session.add_all([english, term])
         db.session.commit()
 
         # Then
-        assert token.id is not None
-        assert token.language_id == language.id
-        assert token.norm == "hello"
-        assert token.kind == TokenKind.WORD
+        assert term.id is not None
+        assert term.language_id == english.id
+        assert term.norm == "hello"
+        assert term.display == "Hello"
+        assert term.token_count == 1
 
-    def test_create_token_phrase(self, app: Flask):
+    def test_create_token_phrase(self, spanish: Language):
         """Test creating a phrase token."""
         # Given
-        language = Language(name="Spanish")
-        db.session.add(language)
-        db.session.commit()
-
-        token = Token(language_id=language.id, norm="hello world", kind=TokenKind.PHRASE)
+        term = Term(language_id=spanish.id, norm="hello world", display="Hello World", token_count=2)
 
         # When
-        db.session.add(token)
+        db.session.add(term)
         db.session.commit()
 
         # Then
-        assert token.id is not None
-        assert token.language_id == language.id
-        assert token.norm == "hello world"
-        assert token.kind == TokenKind.PHRASE
+        assert term.id is not None
+        assert term.language_id == spanish.id
+        assert term.norm == "hello world"
+        assert term.display == "Hello World"
+        assert term.token_count == 2
 
-    def test_token_default_kind(self, app: Flask):
-        """Test token defaults to WORD kind."""
+    def test_term_unique_constraint(self, turkish: Language):
+        """Test term norm must be unique per language."""
         # Given
-        language = Language(name="French")
-        db.session.add(language)
-        db.session.commit()
-
-        token = Token(language_id=language.id, norm="default")
+        term1 = Term(language=turkish, norm="unique", display="Unique", token_count=1)
+        term2 = Term(language=turkish, norm="unique", display="Unique2", token_count=1)
 
         # When
-        db.session.add(token)
-        db.session.commit()
-
-        # Then
-        assert token.kind == TokenKind.WORD
-
-    def test_token_unique_constraint(self, app: Flask):
-        """Test token norm must be unique."""
-        # Given
-        language = Language(name="German")
-        db.session.add(language)
-        db.session.commit()
-
-        token1 = Token(language_id=language.id, norm="unique")
-        token2 = Token(language_id=language.id, norm="unique")
-
-        # When
-        db.session.add_all([token1, token2])
+        db.session.add_all([term1, term2])
 
         # Then
         with pytest.raises(IntegrityError):
             db.session.commit()
 
-    def test_token_kind_constraint(self, app: Flask):
-        """Test token kind must be valid."""
-        # Given
-        language = Language(name="Portuguese")
-        db.session.add(language)
-        db.session.commit()
 
-        token = Token(language_id=language.id, norm="test", kind=99)  # Invalid kind
-
-        # When
-        db.session.add(token)
-
-        # Then
-        with pytest.raises(IntegrityError):
-            db.session.commit()
 
 
 class TestBookVocabModel:
     """Test cases for BookVocab model."""
 
-    def test_create_book_vocab(self, app: Flask):
+    def test_create_book_vocab(self, japanese: Language):
         """Test creating a book vocab entry."""
         # Given
-        language = Language(name="Japanese")
-        db.session.add(language)
+        book = Book(language_id=japanese.id, title="Test Book")
+        term = Term(language_id=japanese.id, norm="word", display="word", token_count=1)
+        db.session.add_all([book, term])
         db.session.commit()
 
-        book = Book(language_id=language.id, title="Test Book")
-        token = Token(language_id=language.id, norm="word")
-        db.session.add_all([book, token])
-        db.session.commit()
-
-        vocab = BookVocab(book_id=book.id, token_id=token.id, token_count=5)
+        vocab = BookVocab(book_id=book.id, term_id=term.id, term_count=5)
 
         # When
         db.session.add(vocab)
@@ -264,23 +222,19 @@ class TestBookVocabModel:
 
         # Then
         assert vocab.book_id == book.id
-        assert vocab.token_id == token.id
-        assert vocab.token_count == 5
+        assert vocab.term_id == term.id
+        assert vocab.term_count == 5
 
-    def test_book_vocab_composite_key(self, app: Flask):
+    def test_book_vocab_composite_key(self, classical_chinese):
         """Test book vocab composite primary key constraint."""
         # Given
-        language = Language(name="Korean")
-        db.session.add(language)
+        book = Book(language=classical_chinese, title="Test Book")
+        term = Term(language=classical_chinese, norm="word", display="word", token_count=1)
+        db.session.add_all([book, term])
         db.session.commit()
 
-        book = Book(language_id=language.id, title="Test Book")
-        token = Token(language_id=language.id, norm="word")
-        db.session.add_all([book, token])
-        db.session.commit()
-
-        vocab1 = BookVocab(book_id=book.id, token_id=token.id, token_count=3)
-        vocab2 = BookVocab(book_id=book.id, token_id=token.id, token_count=5)
+        vocab1 = BookVocab(book_id=book.id, term_id=term.id, term_count=3)
+        vocab2 = BookVocab(book_id=book.id, term_id=term.id, term_count=5)
 
         # When
         db.session.add_all([vocab1, vocab2])
@@ -289,44 +243,36 @@ class TestBookVocabModel:
         with pytest.raises(IntegrityError):
             db.session.commit()
 
-    def test_book_vocab_foreign_keys(self, app: Flask):
+    def test_book_vocab_foreign_keys(self, hindi: Language):
         """Test book vocab requires valid book and token."""
         # Given
-        language = Language(name="Russian")
-        db.session.add(language)
-        db.session.commit()
-
-        book = Book(language_id=language.id, title="Test Book")
-        token = Token(language_id=language.id, norm="word")
-        db.session.add_all([book, token])
+        book = Book(language_id=hindi.id, title="Test Book")
+        term = Term(language_id=hindi.id, norm="word", display="word", token_count=1)
+        db.session.add_all([book, term])
         db.session.commit()
 
         # When - Valid vocab entry should work
-        vocab = BookVocab(book_id=book.id, token_id=token.id, token_count=1)
+        vocab = BookVocab(book_id=book.id, term_id=term.id, term_count=1)
         db.session.add(vocab)
         db.session.commit()
 
         # Then
         assert vocab.book_id == book.id
-        assert vocab.token_id == token.id
+        assert vocab.term_id == term.id
 
 
-class TestTokenProgressModel:
-    """Test cases for TokenProgress model."""
+class TestTermProgressModel:
+    """Test cases for TermProgress model."""
 
-    def test_create_token_progress_learning(self, app: Flask):
-        """Test creating token progress in learning state."""
+    def test_create_term_progress_learning(self, spanish: Language):
+        """Test creating term progress in learning state."""
         # Given
-        language = Language(name="Spanish")
-        db.session.add(language)
+        term = Term(language=spanish, norm="learning", display="learning", token_count=1)
+        db.session.add(term)
         db.session.commit()
 
-        token = Token(language_id=language.id, norm="learning")
-        db.session.add(token)
-        db.session.commit()
-
-        progress = TokenProgress(
-            token_id=token.id,
+        progress = TermProgress(
+            term_id=term.id,
             status=LearningStatus.LEARNING,
             learning_stage=3,
             translation="aprendiendo"
@@ -337,24 +283,20 @@ class TestTokenProgressModel:
         db.session.commit()
 
         # Then
-        assert progress.token_id == token.id
+        assert progress.term_id == term.id
         assert progress.status == LearningStatus.LEARNING
         assert progress.learning_stage == 3
         assert progress.translation == "aprendiendo"
 
-    def test_create_token_progress_known(self, app: Flask):
-        """Test creating token progress in known state."""
+    def test_create_term_progress_known(self, spanish: Language):
+        """Test creating term progress in known state."""
         # Given
-        language = Language(name="Spanish")
-        db.session.add(language)
+        term = Term(language_id=spanish.id, norm="known", display="known", token_count=1)
+        db.session.add(term)
         db.session.commit()
 
-        token = Token(language_id=language.id, norm="known")
-        db.session.add(token)
-        db.session.commit()
-
-        progress = TokenProgress(
-            token_id=token.id,
+        progress = TermProgress(
+            term_id=term.id,
             status=LearningStatus.KNOWN,
             translation="conocido"
         )
@@ -364,23 +306,19 @@ class TestTokenProgressModel:
         db.session.commit()
 
         # Then
-        assert progress.token_id == token.id
+        assert progress.term_id == term.id
         assert progress.status == LearningStatus.KNOWN
         assert progress.learning_stage is None
 
-    def test_create_token_progress_ignore(self, app: Flask):
-        """Test creating token progress in ignore state."""
+    def test_create_term_progress_ignore(self, japanese: Language):
+        """Test creating term progress in ignore state."""
         # Given
-        language = Language(name="Chinese")
-        db.session.add(language)
+        term = Term(language=japanese, norm="ignore", display="ignore", token_count=1)
+        db.session.add(term)
         db.session.commit()
 
-        token = Token(language_id=language.id, norm="ignore")
-        db.session.add(token)
-        db.session.commit()
-
-        progress = TokenProgress(
-            token_id=token.id,
+        progress = TermProgress(
+            term_id=term.id,
             status=LearningStatus.IGNORE
         )
 
@@ -389,22 +327,18 @@ class TestTokenProgressModel:
         db.session.commit()
 
         # Then
-        assert progress.token_id == token.id
+        assert progress.term_id == term.id
         assert progress.status == LearningStatus.IGNORE
         assert progress.learning_stage is None
 
-    def test_token_progress_status_constraint(self, app: Flask):
-        """Test token progress status must be valid."""
+    def test_term_progress_status_constraint(self, hindi: Language):
+        """Test term progress status must be valid."""
         # Given
-        language = Language(name="Arabic")
-        db.session.add(language)
+        term = Term(language=hindi, norm="test", display="test", token_count=1)
+        db.session.add(term)
         db.session.commit()
 
-        token = Token(language_id=language.id, norm="test")
-        db.session.add(token)
-        db.session.commit()
-
-        progress = TokenProgress(token_id=token.id, status=99)
+        progress = TermProgress(term_id=term.id, status=99)
 
         # When
         db.session.add(progress)
@@ -413,20 +347,16 @@ class TestTokenProgressModel:
         with pytest.raises(IntegrityError):
             db.session.commit()
 
-    def test_token_progress_learning_stage_constraint(self, app: Flask):
+    def test_term_progress_learning_stage_constraint(self, hindi: Language):
         """Test learning stage constraint for learning status."""
         # Given
-        language = Language(name="Hindi")
-        db.session.add(language)
-        db.session.commit()
-
-        token = Token(language_id=language.id, norm="test")
-        db.session.add(token)
+        term = Term(language_id=hindi.id, norm="test", display="test", token_count=1)
+        db.session.add(term)
         db.session.commit()
 
         # When - Learning status with invalid stage
-        progress = TokenProgress(
-            token_id=token.id,
+        progress = TermProgress(
+            term_id=term.id,
             status=LearningStatus.LEARNING,
             learning_stage=10  # Invalid stage
         )
@@ -436,44 +366,36 @@ class TestTokenProgressModel:
         with pytest.raises(IntegrityError):
             db.session.commit()
 
-    def test_token_progress_foreign_key(self, app: Flask):
-        """Test token progress requires valid token."""
+    def test_term_progress_foreign_key(self, spanish: Language):
+        """Test term progress requires valid term."""
         # Given
-        language = Language(name="Dutch")
-        db.session.add(language)
-        db.session.commit()
-
-        token = Token(language_id=language.id, norm="valid")
-        db.session.add(token)
+        term = Term(language_id=spanish.id, norm="valid", display="valid", token_count=1)
+        db.session.add(term)
         db.session.commit()
 
         # When - Valid progress entry should work
-        progress = TokenProgress(token_id=token.id, status=LearningStatus.KNOWN)
+        progress = TermProgress(term_id=term.id, status=LearningStatus.KNOWN)
         db.session.add(progress)
         db.session.commit()
 
         # Then
-        assert progress.token_id == token.id
+        assert progress.term_id == term.id
         assert progress.status == LearningStatus.KNOWN
 
 
 class TestBookTotalsModel:
     """Test cases for BookTotals model."""
 
-    def test_create_book_totals(self, app: Flask):
+    def test_create_book_totals(self, english: Language):
         """Test creating book totals."""
         # Given
-        language = Language(name="Swedish")
-        db.session.add(language)
-        db.session.commit()
-
-        book = Book(language_id=language.id, title="Test Book")
+        book = Book(language=english, title="Test Book")
         db.session.add(book)
         db.session.commit()
 
         totals = BookTotals(
             book_id=book.id,
-            total_tokens=1000,
+            total_terms=1000,
             total_types=500
         )
 
@@ -483,23 +405,19 @@ class TestBookTotalsModel:
 
         # Then
         assert totals.book_id == book.id
-        assert totals.total_tokens == 1000
+        assert totals.total_terms == 1000
         assert totals.total_types == 500
 
-    def test_book_totals_relationship(self, app: Flask):
+    def test_book_totals_relationship(self, spanish: Language):
         """Test book totals relationship with book."""
         # Given
-        language = Language(name="Norwegian")
-        db.session.add(language)
-        db.session.commit()
-
-        book = Book(language_id=language.id, title="Test Book")
+        book = Book(language=spanish, title="Test Book")
         db.session.add(book)
         db.session.commit()
 
         totals = BookTotals(
             book_id=book.id,
-            total_tokens=1000,
+            total_terms=1000,
             total_types=500
         )
 
@@ -514,5 +432,5 @@ class TestBookTotalsModel:
         found_totals = db.session.execute(
             sa.select(BookTotals).where(BookTotals.book_id == book.id)
         ).scalar_one()
-        assert found_totals.total_tokens == 1000
+        assert found_totals.total_terms == 1000
         assert found_totals.total_types == 500

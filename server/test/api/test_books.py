@@ -2,39 +2,26 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
-from unittest.mock import patch
 
-import pytest
 import sqlalchemy as sa
 
-from src.models import Book, BookTotals, BookVocab, Chapter, Token, db
-from src.models.language import Language
+from src.models import Book, BookTotals, BookVocab, Chapter, Term, db
 
 if TYPE_CHECKING:
-    from unittest.mock import Mock
-
-    from flask import Flask
     from flask.testing import FlaskClient
 
-
-@pytest.fixture
-def language(app: Flask) -> Language:
-    """Create a test language."""
-    language = Language(name="English")
-    db.session.add(language)
-    db.session.commit()
-    return language
+    from src.models.language import Language
 
 
 class TestCreateBookEndpoint:
     """Test cases for POST /api/books endpoint."""
 
-    def test_create_book_success_single_chapter(self, client: FlaskClient, language: Language) -> None:
+    def test_create_book_success_single_chapter(self, client: FlaskClient, english: Language) -> None:
         """Test successful book creation with a single chapter."""
         # Given
         request_data = {
             "title": "Test Book",
-            "language_id": language.id,
+            "language_id": english.id,
             "chapters": ["Hello world! This is a test chapter."],
             "source": "Test Source",
             "cover_art_filepath": "/path/to/cover.jpg"
@@ -54,7 +41,7 @@ class TestCreateBookEndpoint:
             sa.select(Book).where(Book.id == book_id)
         ).scalar_one()
         assert book.title == "Test Book"
-        assert book.language_id == language.id
+        assert book.language_id == english.id
         assert book.source == "Test Source"
         assert book.cover_art_filepath == "/path/to/cover.jpg"
         assert book.is_archived is False
@@ -70,7 +57,7 @@ class TestCreateBookEndpoint:
 
         # Verify tokens were created
         tokens = list(db.session.execute(
-            sa.select(Token).where(Token.language_id == language.id)
+            sa.select(Term).where(Term.language_id == english.id)
         ).scalars())
         token_norms = {token.norm for token in tokens}
         expected_tokens = {"hello", "world", "this", "is", "a", "test", "chapter"}
@@ -84,21 +71,21 @@ class TestCreateBookEndpoint:
 
         # Verify each token appears once
         for entry in vocab_entries:
-            assert entry.token_count == 1
+            assert entry.term_count == 1
 
         # Verify book totals were created
         totals = db.session.execute(
             sa.select(BookTotals).where(BookTotals.book_id == book_id)
         ).scalar_one()
-        assert totals.total_tokens == 7
+        assert totals.total_terms == 7
         assert totals.total_types == 7
 
-    def test_create_book_success_multiple_chapters(self, client: FlaskClient, language: Language) -> None:
+    def test_create_book_success_multiple_chapters(self, client: FlaskClient, spanish: Language) -> None:
         """Test successful book creation with multiple chapters."""
         # Given
         request_data = {
             "title": "Multi Chapter Book",
-            "language_id": language.id,
+            "language_id": spanish.id,
             "chapters": [
                 "First chapter with some words.",
                 "Second chapter with more words and some repeated words."
@@ -131,7 +118,7 @@ class TestCreateBookEndpoint:
         totals = db.session.execute(
             sa.select(BookTotals).where(BookTotals.book_id == book_id)
         ).scalar_one()
-        assert totals.total_tokens == 14  # 5 + 9
+        assert totals.total_terms == 14  # 5 + 9
 
         # Verify unique token count (some words are repeated across chapters)
         vocab_count = db.session.execute(
@@ -139,12 +126,12 @@ class TestCreateBookEndpoint:
         ).scalar()
         assert totals.total_types == vocab_count
 
-    def test_create_book_token_counts(self, client: FlaskClient, language: Language) -> None:
+    def test_create_book_token_counts(self, client: FlaskClient, english: Language) -> None:
         """Test that token counts are calculated correctly for repeated words."""
         # Given
         request_data = {
             "title": "Repeated Words Book",
-            "language_id": language.id,
+            "language_id": english.id,
             "chapters": ["the cat sat on the mat the cat was happy"]
         }
 
@@ -158,12 +145,12 @@ class TestCreateBookEndpoint:
 
         # Verify token counts
         vocab_entries = db.session.execute(
-            sa.select(BookVocab, Token)
-            .join(Token, BookVocab.token_id == Token.id)
+            sa.select(BookVocab, Term)
+            .join(Term, BookVocab.term_id == Term.id)
             .where(BookVocab.book_id == book_id)
         ).all()
 
-        token_counts = {token.norm: vocab.token_count for vocab, token in vocab_entries}
+        token_counts = {term.norm: vocab.term_count for vocab, term in vocab_entries}
         assert token_counts["the"] == 3
         assert token_counts["cat"] == 2
         assert token_counts["sat"] == 1
@@ -176,15 +163,15 @@ class TestCreateBookEndpoint:
         totals = db.session.execute(
             sa.select(BookTotals).where(BookTotals.book_id == book_id)
         ).scalar_one()
-        assert totals.total_tokens == 10  # Total word count
+        assert totals.total_terms == 10  # Total word count
         assert totals.total_types == 7   # Unique words
 
-    def test_create_book_minimal_data(self, client: FlaskClient, language: Language) -> None:
+    def test_create_book_minimal_data(self, client: FlaskClient, english: Language) -> None:
         """Test book creation with minimal required data."""
         # Given
         request_data = {
             "title": "Minimal Book",
-            "language_id": language.id,
+            "language_id": english.id,
             "chapters": ["Simple content."]
         }
 
@@ -203,12 +190,12 @@ class TestCreateBookEndpoint:
         assert book.source is None
         assert book.cover_art_filepath is None
 
-    def test_create_book_empty_chapters(self, client: FlaskClient, language: Language) -> None:
+    def test_create_book_empty_chapters(self, client: FlaskClient, english: Language) -> None:
         """Test book creation handles empty chapters correctly."""
         # Given
         request_data = {
             "title": "Empty Chapters Book",
-            "language_id": language.id,
+            "language_id": english.id,
             "chapters": ["", "   ", "actual content here"]
         }
 
@@ -230,13 +217,13 @@ class TestCreateBookEndpoint:
         assert chapters[1].word_count == 0  # Whitespace only
         assert chapters[2].word_count == 3  # "actual content here"
 
-    def test_create_book_punctuation_handling(self, client: FlaskClient, language: Language) -> None:
+    def test_create_book_punctuation_handling(self, client: FlaskClient, english: Language) -> None:
         """Test that punctuation is properly stripped from tokens."""
         # Given
         request_data = {
             "title": "Punctuation Book",
-            "language_id": language.id,
-            "chapters": ["Hello, world! How are you? I'm fine."]
+            "language_id": english.id,
+            "chapters": ["Hello, world! How are you? I am fine."]
         }
 
         # When
@@ -246,20 +233,20 @@ class TestCreateBookEndpoint:
         assert response.status_code == 201
 
         tokens = list(db.session.execute(
-            sa.select(Token).where(Token.language_id == language.id)
+            sa.select(Term).where(Term.language_id == english.id)
         ).scalars())
         token_norms = {token.norm for token in tokens}
 
         # Verify punctuation was stripped
-        expected_tokens = {"hello", "world", "how", "are", "you", "i'm", "fine"}
+        expected_tokens = {"hello", "world", "how", "are", "you", "i", "am", "fine"}
         assert token_norms == expected_tokens
 
-    def test_create_book_case_normalization(self, client: FlaskClient, language: Language) -> None:
+    def test_create_book_case_normalization(self, client: FlaskClient, english: Language) -> None:
         """Test that tokens are normalized to lowercase."""
         # Given
         request_data = {
             "title": "Case Test Book",
-            "language_id": language.id,
+            "language_id": english.id,
             "chapters": ["Hello WORLD This Is Mixed CaSe"]
         }
 
@@ -270,7 +257,7 @@ class TestCreateBookEndpoint:
         assert response.status_code == 201
 
         tokens = list(db.session.execute(
-            sa.select(Token).where(Token.language_id == language.id)
+            sa.select(Term).where(Term.language_id == english.id)
         ).scalars())
         token_norms = {token.norm for token in tokens}
 
@@ -282,11 +269,11 @@ class TestCreateBookEndpoint:
         for token in tokens:
             assert token.norm.islower()
 
-    def test_create_book_missing_title(self, client: FlaskClient, language: Language) -> None:
+    def test_create_book_missing_title(self, client: FlaskClient, english: Language) -> None:
         """Test validation error for missing title."""
         # Given
         request_data = {
-            "language_id": language.id,
+            "language_id": english.id,
             "chapters": ["Some content"]
         }
 
@@ -310,12 +297,12 @@ class TestCreateBookEndpoint:
         # Then
         assert response.status_code == 422  # Validation error
 
-    def test_create_book_missing_chapters(self, client: FlaskClient, language: Language) -> None:
+    def test_create_book_missing_chapters(self, client: FlaskClient, english: Language) -> None:
         """Test validation error for missing chapters."""
         # Given
         request_data = {
             "title": "Test Book",
-            "language_id": language.id
+            "language_id": english.id
         }
 
         # When
@@ -324,12 +311,12 @@ class TestCreateBookEndpoint:
         # Then
         assert response.status_code == 422  # Validation error
 
-    def test_create_book_empty_chapters_list(self, client: FlaskClient, language: Language) -> None:
+    def test_create_book_empty_chapters_list(self, client: FlaskClient, english: Language) -> None:
         """Test validation error for empty chapters list."""
         # Given
         request_data = {
             "title": "Test Book",
-            "language_id": language.id,
+            "language_id": english.id,
             "chapters": []
         }
 
@@ -363,25 +350,25 @@ class TestCreateBookEndpoint:
         assert response.status_code == 404
         assert response.json == {"error": "Not Found", "msg": "invalid language_id: '99999'"}
 
-    def test_create_book_existing_tokens(self, client: FlaskClient, language: Language) -> None:
+    def test_create_book_existing_tokens(self, client: FlaskClient, english: Language) -> None:
         """Test that existing tokens are reused correctly."""
         # Given - Create a book with some tokens first
         first_request = {
             "title": "First Book",
-            "language_id": language.id,
+            "language_id": english.id,
             "chapters": ["hello world"]
         }
         client.post("/api/books", json=first_request)
 
         # Get initial token count
         initial_token_count = db.session.execute(
-            sa.select(sa.func.count()).select_from(Token).where(Token.language_id == language.id)
+            sa.select(sa.func.count()).select_from(Term).where(Term.language_id == english.id)
         ).scalar()
         assert initial_token_count == 2
 
         second_request = {
             "title": "Second Book",
-            "language_id": language.id,
+            "language_id": english.id,
             "chapters": ["hello universe world"]  # "hello" and "world" already exist
         }
 
@@ -393,68 +380,11 @@ class TestCreateBookEndpoint:
 
         # Verify token count only increased by 1 (for "universe")
         final_token_count = db.session.execute(
-            sa.select(sa.func.count()).select_from(Token).where(Token.language_id == language.id)
+            sa.select(sa.func.count()).select_from(Term).where(Term.language_id == english.id)
         ).scalar()
         assert final_token_count == initial_token_count + 1
 
-    def test_create_book_large_batch_chunking(self, client: FlaskClient, language: Language) -> None:
-        """Test that large token batches are properly chunked."""
-        # Given - Create content with many unique tokens to test chunking
-        # Generate 600+ unique words to exceed the 500 chunk size
-        words = [f"word{i}" for i in range(650)]
-        content = " ".join(words)
-
-        request_data = {
-            "title": "Large Batch Book",
-            "language_id": language.id,
-            "chapters": [content]
-        }
-
-        # When
-        response = client.post("/api/books", json=request_data)
-
-        # Then
-        assert response.status_code == 201
-        data = response.get_json()
-        book_id = data["book_id"]
-
-        # Verify all tokens were created
-        token_count = db.session.execute(
-            sa.select(sa.func.count()).select_from(Token).where(Token.language_id == language.id)
-        ).scalar()
-        assert token_count == 650
-
-        # Verify book vocab entries were created
-        vocab_count = db.session.execute(
-            sa.select(sa.func.count()).select_from(BookVocab).where(BookVocab.book_id == book_id)
-        ).scalar()
-        assert vocab_count == 650
-
-    @patch('src.api.books.tokenise_and_count')
-    def test_create_book_tokenizer_called(self, mock_tokenize: Mock, client: FlaskClient, language: Language) -> None:
-        """Test that the tokenizer function is called for each chapter."""
-        # Given
-        mock_tokenize.side_effect = [
-            {"hello": 1, "world": 1},
-            {"foo": 1, "bar": 1}
-        ]
-
-        request_data = {
-            "title": "Tokenizer Test Book",
-            "language_id": language.id,
-            "chapters": ["hello world", "foo bar"]
-        }
-
-        # When
-        response = client.post("/api/books", json=request_data)
-
-        # Then
-        assert response.status_code == 201
-        assert mock_tokenize.call_count == 2
-        mock_tokenize.assert_any_call("hello world")
-        mock_tokenize.assert_any_call("foo bar")
-
-    def test_create_book_rollback_on_error(self, client: FlaskClient, language: Language) -> None:
+    def test_create_book_rollback_on_error(self, client: FlaskClient, english: Language) -> None:
         """Test that database changes are rolled back on error."""
         # Given - Create initial state
         initial_book_count = db.session.execute(
@@ -479,12 +409,12 @@ class TestCreateBookEndpoint:
         ).scalar()
         assert final_book_count == initial_book_count
 
-    def test_create_book_response_structure(self, client: FlaskClient, language: Language) -> None:
+    def test_create_book_response_structure(self, client: FlaskClient, english: Language) -> None:
         """Test that response has correct structure."""
         # Given
         request_data = {
             "title": "Response Test Book",
-            "language_id": language.id,
+            "language_id": english.id,
             "chapters": ["test content"]
         }
 

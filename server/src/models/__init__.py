@@ -7,10 +7,9 @@ from src.models.books import (
     BookVocab,
     Chapter,
     LearningStatus,
-    Token,
-    TokenKind,
-    TokenProgress,
+    Term,
+    TermProgress,
 )
 from src.models.language import Language, LanguageDictionary
 
-__all__ = ["db", "Book", "Chapter", "TokenKind", "Token", "BookVocab", "BookTotals", "LearningStatus", "TokenProgress", "Language", "LanguageDictionary"]
+__all__ = ["db", "Book", "Chapter", "Term", "BookVocab", "BookTotals", "LearningStatus", "TermProgress", "Language", "LanguageDictionary"]

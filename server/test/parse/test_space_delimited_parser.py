@@ -37,7 +37,7 @@ def assert_string_equals(text: str, lang: Language, expected: str):
     p = SpaceDelimitedParser()
     actual = p.get_parsed_tokens(text, lang)
 
-    def to_string(tokens):
+    def to_string(tokens: list[ParsedToken]):
         ret = ""
         for tok in tokens:
             s = tok.token
@@ -54,17 +54,17 @@ def test_end_of_sentence_stored_in_parsed_tokens(spanish: Language):
     s = "Tengo un gato.\nTengo dos."
 
     expected = [
-        ParsedToken("Tengo", True, False),
-        ParsedToken(" ", False, False),
-        ParsedToken("un", True, False),
-        ParsedToken(" ", False, False),
-        ParsedToken("gato", True, False),
-        ParsedToken(".", False, True),
-        ParsedToken("¶", False, True),
-        ParsedToken("Tengo", True, False),
-        ParsedToken(" ", False, False),
-        ParsedToken("dos", True, False),
-        ParsedToken(".", False, True),
+        ParsedToken("Tengo", "tengo", True, False),
+        ParsedToken(" ", " ", False, False),
+        ParsedToken("un", "un", True, False),
+        ParsedToken(" ", " ", False, False),
+        ParsedToken("gato", "gato", True, False),
+        ParsedToken(".", ".", False, True),
+        ParsedToken("¶", "¶", False, True),
+        ParsedToken("Tengo", "tengo", True, False),
+        ParsedToken(" ", " ", False, False),
+        ParsedToken("dos", "dos", True, False),
+        ParsedToken(".", ".", False, True),
     ]
 
     assert_tokens_equals(s, spanish, expected)
@@ -75,15 +75,15 @@ def test_exceptions_are_considered_when_splitting_sentences(english):
     s = "1. Mrs. Jones is here."
 
     expected = [
-        ParsedToken("1. ", False, True),
-        ParsedToken("Mrs.", True, False),
-        ParsedToken(" ", False, False),
-        ParsedToken("Jones", True, False),
-        ParsedToken(" ", False, False),
-        ParsedToken("is", True, False),
-        ParsedToken(" ", False, False),
-        ParsedToken("here", True, False),
-        ParsedToken(".", False, True),
+        ParsedToken("1. ", "1. ", False, True),
+        ParsedToken("Mrs.", "mrs. ", True, False),
+        ParsedToken(" ", " ", False, False),
+        ParsedToken("Jones", "jones", True, False),
+        ParsedToken(" ", " ", False, False),
+        ParsedToken("is", "is", True, False),
+        ParsedToken(" ", " ", False, False),
+        ParsedToken("here", "here", True, False),
+        ParsedToken(".", ".", False, True),
     ]
 
     assert_tokens_equals(s, english, expected)
@@ -95,14 +95,14 @@ def test_single_que(spanish: Language):
     """
     text = "Tengo que y qué."
     expected = [
-        ParsedToken("Tengo", True, False),
-        ParsedToken(" ", False, False),
-        ParsedToken("que", True, False),
-        ParsedToken(" ", False, False),
-        ParsedToken("y", True, False),
-        ParsedToken(" ", False, False),
-        ParsedToken("qué", True, False),
-        ParsedToken(".", False, True),
+        ParsedToken("Tengo", "tengo", True, False),
+        ParsedToken(" ", " ", False, False),
+        ParsedToken("que", "que", True, False),
+        ParsedToken(" ", " ", False, False),
+        ParsedToken("y", "y", True, False),
+        ParsedToken(" ", " ", False, False),
+        ParsedToken("qué", "qué", True, False),
+        ParsedToken(".", ".", False, True),
     ]
     assert_tokens_equals(text, spanish, expected)
 
@@ -115,14 +115,14 @@ def test_EE_UU_exception_should_be_considered(spanish: Language):
     spanish.exceptions_split_sentences = "EE.UU."
 
     expected = [
-        ParsedToken("Estamos", True, False),
-        ParsedToken(" ", False, False),
-        ParsedToken("en", True, False),
-        ParsedToken(" ", False, False),
-        ParsedToken("EE.UU.", True, False),
-        ParsedToken(" ", False, False),
-        ParsedToken("hola", True, False),
-        ParsedToken(".", False, True),
+        ParsedToken("Estamos", "estamos", True, False),
+        ParsedToken(" ", " ", False, False),
+        ParsedToken("en", "en", True, False),
+        ParsedToken(" ", " ", False, False),
+        ParsedToken("EE.UU.", "ee.uu.", True, False),
+        ParsedToken(" ", " ", False, False),
+        ParsedToken("hola", "hola", True, False),
+        ParsedToken(".", ".", False, True),
     ]
 
     assert_tokens_equals(s, spanish, expected)
@@ -135,7 +135,7 @@ def test_just_EE_UU(spanish: Language):
     s = "EE.UU."
     spanish.exceptions_split_sentences = "EE.UU."
     expected = [
-        ParsedToken("EE.UU.", True, False),
+        ParsedToken("EE.UU.", "ee.uu.", True, False),
     ]
     assert_tokens_equals(s, spanish, expected)
 

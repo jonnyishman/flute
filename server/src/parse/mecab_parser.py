@@ -107,7 +107,7 @@ class JapaneseParser(AbstractParser):
             # The repeat character is sometimes returned as a "symbol"
             # (node type = 3), so handle that specifically.
             is_word = node_type in "2678" or term == "々"
-            return ParsedToken(term, is_word, is_eos or term == "¶")
+            return ParsedToken(term, term, is_word, is_eos or term == "¶")
 
         return [line_to_token(line) for line in valid_lines]
 
