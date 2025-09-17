@@ -6,6 +6,7 @@ from sqlalchemy import event
 from sqlalchemy.engine import Engine
 
 from src.api.routes import api_bp
+from src.cli import seed_database
 from src.config import AppConfig
 from src.models import db
 
@@ -35,6 +36,9 @@ def create_app(config: AppConfig | None = None) -> Flask:
 
     # Register blueprints
     app.register_blueprint(api_bp, url_prefix="/api")
+
+    # Register CLI commands
+    app.cli.add_command(seed_database)
 
     # Create database tables (for now while we're prototyping)
     with app.app_context():
