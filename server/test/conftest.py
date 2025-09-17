@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 @pytest.fixture(scope="session")
 def config() -> AppConfig:
     return AppConfig(
-        SQLALCHEMY_DATABASE_URI="sqlite:///:memory:",
+        SQLITE_PATH=":memory:",
         SECRET_KEY="test_secret",
     )
 

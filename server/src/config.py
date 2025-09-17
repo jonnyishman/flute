@@ -18,6 +18,9 @@ and the defaulted value is picked up by mistake.
 """
 from __future__ import annotations
 
+import os
+
+from pydantic import computed_field
 from pydantic_settings import BaseSettings
 
 
@@ -29,9 +32,16 @@ class AppConfig(BaseSettings):
     """
 
     # Must be provided by env vars
-    SQLALCHEMY_DATABASE_URI: str
+    SQLITE_PATH: str
     SECRET_KEY: str
 
     # Expect same value for all envs so can be defaulted
     SQLALCHEMY_TRACK_MODIFICATIONS: bool = False
     FLASK_PYDANTIC_VALIDATION_ERROR_STATUS_CODE: int = 422
+
+    # Worked out from above
+    @computed_field
+    @property
+    def SQLALCHEMY_DATABASE_URI(self) -> str:
+        location = self.SQLITE_PATH if self.SQLITE_PATH == ":memory:" else os.path.abspath(self.SQLITE_PATH)
+        return f"sqlite:///{location}"

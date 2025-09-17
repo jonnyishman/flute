@@ -34,6 +34,11 @@ class ParsedToken:
         ]
         return f'<"{self.token}" ({", ".join(attrs)})>'
 
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, ParsedToken):
+            return False
+        return self.norm == other.norm
+
     def __hash__(self) -> int:
         return hash(self.norm)
 
