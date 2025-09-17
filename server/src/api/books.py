@@ -1,16 +1,27 @@
 """API routes for book-related operations"""
+import enum
 from typing import TYPE_CHECKING, cast
 
 import sqlalchemy as sa
 from flask import abort
 from flask_pydantic import validate
 from more_itertools import chunked
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.dialects.sqlite import insert
 from sqlalchemy.exc import IntegrityError
 
 from src.api.routes import api_bp
-from src.models import Book, BookTotals, BookVocab, Chapter, Language, Term, db
+from src.models import (
+    Book,
+    BookTotals,
+    BookVocab,
+    Chapter,
+    Language,
+    LearningStatus,
+    Term,
+    TermProgress,
+    db,
+)
 from src.parse.registry import get_parser
 
 if TYPE_CHECKING:
@@ -135,3 +146,108 @@ def create_book(body: CreateBookRequest) -> tuple[CreateBookResponse, int]:
 
     db.session.commit()
     return CreateBookResponse(book_id=book_id), 201
+
+
+class SortOption(str, enum.Enum):
+    TITLE = "title"
+    LAST_READ = "last_read"
+    LEARNING_TERMS = "learning_terms"
+    UNKNOWN_TERMS = "unknown_terms"
+
+
+class SortOrder(str, enum.Enum):
+    ASC = "asc"
+    DESC = "desc"
+
+
+class BookSummariesRequest(BaseModel):
+    language_id: int
+    sort_option: SortOption | None = None
+    sort_order: SortOrder = SortOrder.ASC
+    page: int = Field(default=1, ge=1)
+    per_page: int = Field(default=50, ge=1, le=100)
+
+
+class BookSummary(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    book_id: int
+    title: str
+    cover_art_filepath: str | None
+    total_terms: int
+    known_terms: int
+    learning_terms: int
+    unknown_terms: int
+
+
+class BookSummariesResponse(BaseModel):
+    summaries: list[BookSummary]
+
+
+@api_bp.route("/books", methods=["GET"])
+@validate()
+def get_book_summaries(query: BookSummariesRequest) -> BookSummariesResponse:
+    """
+    Retrieves paginated summaries of books in a given language, includes aggregated term counts for each book
+    """
+    # filters
+    base_where = [Book.is_archived.is_(False), Book.language_id == query.language_id]
+
+    # progress CTE, aggregate only over terms with progress for all books
+    progress = (
+        sa.select(
+            BookVocab.book_id,
+            sa.func.sum(sa.case((TermProgress.status == LearningStatus.KNOWN, BookVocab.term_count), else_=0)).label("known_terms"),
+            sa.func.sum(sa.case((TermProgress.status == LearningStatus.LEARNING, BookVocab.term_count), else_=0)).label("learning_terms"),
+            sa.func.sum(sa.case((TermProgress.status == LearningStatus.IGNORE, BookVocab.term_count), else_=0)).label("ignored_terms"),
+        )
+        .select_from(
+            sa.join(TermProgress, BookVocab, TermProgress.term_id == BookVocab.term_id)
+            .join(Book, BookVocab.book_id == Book.id)
+        )
+        .where(*base_where)
+        .group_by(BookVocab.book_id)
+    ).cte("progress")
+
+    # expressions for select and sort
+    total_terms = sa.func.coalesce(BookTotals.total_terms, 0)
+    known_terms = sa.func.coalesce(progress.c.known_terms, 0)
+    learning_terms = sa.func.coalesce(progress.c.learning_terms, 0)
+    ignored_terms = sa.func.coalesce(progress.c.ignored_terms, 0)
+    unknown_terms = total_terms - known_terms - learning_terms - ignored_terms
+    # title collation (SQLite NOCASE for a natural sort)
+    title_expr = sa.collate(Book.title, "NOCASE")
+
+    if query.sort_option == SortOption.LEARNING_TERMS:
+        sort = learning_terms
+    elif query.sort_option == SortOption.UNKNOWN_TERMS:
+        sort = unknown_terms
+    elif query.sort_option == SortOption.LAST_READ:
+        sort = Book.last_read
+    else:  # Default to TITLE
+        sort = title_expr
+
+    sort = sort.asc() if query.sort_order == SortOrder.ASC else sort.desc()
+
+    # main query
+    stmt = (
+        sa.select(
+            Book.id.label("book_id"),
+            Book.title.label("title"),
+            Book.cover_art_filepath.label("cover_art_filepath"),
+            total_terms.label("total_terms"),
+            known_terms.label("known_terms"),
+            learning_terms.label("learning_terms"),
+            unknown_terms.label("unknown_terms"),
+        )
+        .select_from(
+            sa.outerjoin(Book, BookTotals, BookTotals.book_id == Book.id)
+            .outerjoin(progress, progress.c.book_id == Book.id)
+        )
+        .where(*base_where)
+        .order_by(sort)
+        .limit(query.per_page)
+        .offset((query.page - 1) * query.per_page)
+    )
+    rows = db.session.execute(stmt).all()
+    return BookSummariesResponse(summaries=[BookSummary.model_validate(row) for row in rows])

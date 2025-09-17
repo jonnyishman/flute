@@ -1,11 +1,22 @@
 """Tests for book API endpoints."""
 from __future__ import annotations
 
+from datetime import datetime
 from typing import TYPE_CHECKING
 
+import pytest
 import sqlalchemy as sa
 
-from src.models import Book, BookTotals, BookVocab, Chapter, Term, db
+from src.models import (
+    Book,
+    BookTotals,
+    BookVocab,
+    Chapter,
+    LearningStatus,
+    Term,
+    TermProgress,
+    db,
+)
 
 if TYPE_CHECKING:
     from flask.testing import FlaskClient
@@ -430,4 +441,839 @@ class TestCreateBookEndpoint:
         assert "book_id" in data
         assert isinstance(data["book_id"], int)
         assert data["book_id"] > 0
+
+
+@pytest.fixture
+def books_with_progress(english: Language, spanish: Language) -> dict[str, int]:
+    """Create test books with terms and progress for summaries testing."""
+    # Create terms for both languages
+    english_terms = [
+        Term(norm="hello", display="hello", language_id=english.id, token_count=1),
+        Term(norm="world", display="world", language_id=english.id, token_count=1),
+        Term(norm="test", display="test", language_id=english.id, token_count=1),
+        Term(norm="book", display="book", language_id=english.id, token_count=1),
+        Term(norm="reading", display="reading", language_id=english.id, token_count=1),
+    ]
+
+    spanish_terms = [
+        Term(norm="hola", display="hola", language_id=spanish.id, token_count=1),
+        Term(norm="mundo", display="mundo", language_id=spanish.id, token_count=1),
+        Term(norm="libro", display="libro", language_id=spanish.id, token_count=1),
+    ]
+
+    for term in english_terms + spanish_terms:
+        db.session.add(term)
+    db.session.flush()
+
+    # Create books for different scenarios
+    books = [
+        # English books
+        Book(
+            title="Alpha Book",
+            language_id=english.id,
+            is_archived=False,
+            last_read=datetime(2024, 1, 15),
+        ),
+        Book(
+            title="Beta Book",
+            language_id=english.id,
+            is_archived=False,
+            last_read=datetime(2024, 2, 10),
+        ),
+        Book(
+            title="Gamma Book",
+            language_id=english.id,
+            is_archived=False,
+            last_read=datetime(2024, 1, 5),
+        ),
+        Book(
+            title="Archived Book",
+            language_id=english.id,
+            is_archived=True,
+            last_read=datetime(2024, 1, 1),
+        ),
+        # Spanish books
+        Book(
+            title="Libro Español",
+            language_id=spanish.id,
+            is_archived=False,
+            last_read=datetime(2024, 1, 20),
+        ),
+    ]
+
+    for book in books:
+        db.session.add(book)
+    db.session.flush()
+
+    # Create vocabulary mappings and progress
+    # Alpha Book - 3 terms: 2 known, 1 learning, 0 unknown
+    alpha_vocab = [
+        BookVocab(book_id=books[0].id, term_id=english_terms[0].id, term_count=2),  # hello (known)
+        BookVocab(book_id=books[0].id, term_id=english_terms[1].id, term_count=1),  # world (known)
+        BookVocab(book_id=books[0].id, term_id=english_terms[2].id, term_count=1),  # test (learning)
+    ]
+
+    # Beta Book - 4 terms: 1 known, 2 learning, 1 unknown
+    beta_vocab = [
+        BookVocab(book_id=books[1].id, term_id=english_terms[0].id, term_count=1),  # hello (known)
+        BookVocab(book_id=books[1].id, term_id=english_terms[2].id, term_count=2),  # test (learning)
+        BookVocab(book_id=books[1].id, term_id=english_terms[3].id, term_count=1),  # book (learning)
+        BookVocab(book_id=books[1].id, term_id=english_terms[4].id, term_count=1),  # reading (unknown)
+    ]
+
+    # Gamma Book - 2 terms: 0 known, 0 learning, 2 unknown
+    gamma_vocab = [
+        BookVocab(book_id=books[2].id, term_id=english_terms[3].id, term_count=3),  # book (unknown)
+        BookVocab(book_id=books[2].id, term_id=english_terms[4].id, term_count=2),  # reading (unknown)
+    ]
+
+    # Archived Book - should not appear in results
+    archived_vocab = [
+        BookVocab(book_id=books[3].id, term_id=english_terms[0].id, term_count=1),  # hello
+    ]
+
+    # Spanish Book - 2 terms: 1 known, 1 learning
+    spanish_vocab = [
+        BookVocab(book_id=books[4].id, term_id=spanish_terms[0].id, term_count=1),  # hola (known)
+        BookVocab(book_id=books[4].id, term_id=spanish_terms[1].id, term_count=1),  # mundo (learning)
+    ]
+
+    all_vocab = alpha_vocab + beta_vocab + gamma_vocab + archived_vocab + spanish_vocab
+    for vocab in all_vocab:
+        db.session.add(vocab)
+    db.session.flush()
+
+    # Create book totals
+    book_totals = [
+        BookTotals(book_id=books[0].id, total_terms=4, total_types=3),
+        BookTotals(book_id=books[1].id, total_terms=5, total_types=4),
+        BookTotals(book_id=books[2].id, total_terms=5, total_types=2),
+        BookTotals(book_id=books[3].id, total_terms=1, total_types=1),
+        BookTotals(book_id=books[4].id, total_terms=2, total_types=2),
+    ]
+
+    for total in book_totals:
+        db.session.add(total)
+    db.session.flush()
+
+    # Create term progress
+    progress_entries = [
+        # Known terms
+        TermProgress(term_id=english_terms[0].id, status=LearningStatus.KNOWN, learning_stage=5),
+        TermProgress(term_id=english_terms[1].id, status=LearningStatus.KNOWN, learning_stage=5),
+        TermProgress(term_id=spanish_terms[0].id, status=LearningStatus.KNOWN, learning_stage=4),
+
+        # Learning terms
+        TermProgress(term_id=english_terms[2].id, status=LearningStatus.LEARNING, learning_stage=2),
+        TermProgress(term_id=english_terms[3].id, status=LearningStatus.LEARNING, learning_stage=1),
+        TermProgress(term_id=spanish_terms[1].id, status=LearningStatus.LEARNING, learning_stage=3),
+    ]
+
+    for progress in progress_entries:
+        db.session.add(progress)
+
+    db.session.commit()
+
+    return {
+        "alpha_book_id": books[0].id,
+        "beta_book_id": books[1].id,
+        "gamma_book_id": books[2].id,
+        "archived_book_id": books[3].id,
+        "spanish_book_id": books[4].id,
+        "english_id": english.id,
+        "spanish_id": spanish.id,
+    }
+
+
+@pytest.fixture
+def books_with_ignored_terms(english: Language, spanish: Language) -> dict[str, int]:
+    """Create test books specifically for testing ignored terms functionality."""
+    # Create additional terms for ignored terms testing
+    english_terms = [
+        Term(norm="ignore", display="ignore", language_id=english.id, token_count=1),
+        Term(norm="skip", display="skip", language_id=english.id, token_count=1),
+        Term(norm="review", display="review", language_id=english.id, token_count=1),
+        Term(norm="study", display="study", language_id=english.id, token_count=1),
+        Term(norm="common", display="common", language_id=english.id, token_count=1),
+        Term(norm="word", display="word", language_id=english.id, token_count=1),
+    ]
+
+    for term in english_terms:
+        db.session.add(term)
+    db.session.flush()
+
+    # Create books with different ignored term scenarios
+    books = [
+        # Delta Book - mixed statuses including ignored
+        Book(
+            title="Delta Book",
+            language_id=english.id,
+            is_archived=False,
+            last_read=datetime(2024, 3, 1),
+        ),
+        # Epsilon Book - all terms ignored
+        Book(
+            title="Epsilon Book",
+            language_id=english.id,
+            is_archived=False,
+            last_read=datetime(2024, 3, 5),
+        ),
+        # Zeta Book - no ignored terms (for backward compatibility)
+        Book(
+            title="Zeta Book",
+            language_id=english.id,
+            is_archived=False,
+            last_read=datetime(2024, 3, 10),
+        ),
+    ]
+
+    for book in books:
+        db.session.add(book)
+    db.session.flush()
+
+    # Create vocabulary mappings
+    # Delta Book - 6 terms: 1 known, 2 learning, 2 ignored, 1 unknown
+    delta_vocab = [
+        BookVocab(book_id=books[0].id, term_id=english_terms[0].id, term_count=3),  # ignore (ignored)
+        BookVocab(book_id=books[0].id, term_id=english_terms[1].id, term_count=1),  # skip (ignored)
+        BookVocab(book_id=books[0].id, term_id=english_terms[2].id, term_count=2),  # review (learning)
+        BookVocab(book_id=books[0].id, term_id=english_terms[3].id, term_count=1),  # study (learning)
+        BookVocab(book_id=books[0].id, term_id=english_terms[4].id, term_count=2),  # common (known)
+        BookVocab(book_id=books[0].id, term_id=english_terms[5].id, term_count=1),  # word (unknown)
+    ]
+
+    # Epsilon Book - 2 terms: all ignored
+    epsilon_vocab = [
+        BookVocab(book_id=books[1].id, term_id=english_terms[0].id, term_count=2),  # ignore (ignored)
+        BookVocab(book_id=books[1].id, term_id=english_terms[1].id, term_count=3),  # skip (ignored)
+    ]
+
+    # Zeta Book - 4 terms: 2 known, 1 learning, 1 unknown, 0 ignored
+    zeta_vocab = [
+        BookVocab(book_id=books[2].id, term_id=english_terms[2].id, term_count=1),  # review (learning)
+        BookVocab(book_id=books[2].id, term_id=english_terms[3].id, term_count=2),  # study (known)
+        BookVocab(book_id=books[2].id, term_id=english_terms[4].id, term_count=1),  # common (known)
+        BookVocab(book_id=books[2].id, term_id=english_terms[5].id, term_count=3),  # word (unknown)
+    ]
+
+    all_vocab = delta_vocab + epsilon_vocab + zeta_vocab
+    for vocab in all_vocab:
+        db.session.add(vocab)
+    db.session.flush()
+
+    # Create book totals
+    book_totals = [
+        BookTotals(book_id=books[0].id, total_terms=10, total_types=6),  # Delta: 3+1+2+1+2+1=10
+        BookTotals(book_id=books[1].id, total_terms=5, total_types=2),   # Epsilon: 2+3=5
+        BookTotals(book_id=books[2].id, total_terms=7, total_types=4),   # Zeta: 1+2+1+3=7
+    ]
+
+    for total in book_totals:
+        db.session.add(total)
+    db.session.flush()
+
+    # Create term progress (including ignored terms)
+    progress_entries = [
+        # Known terms
+        TermProgress(term_id=english_terms[4].id, status=LearningStatus.KNOWN, learning_stage=5),  # common
+        TermProgress(term_id=english_terms[3].id, status=LearningStatus.KNOWN, learning_stage=4),  # study
+
+        # Learning terms
+        TermProgress(term_id=english_terms[2].id, status=LearningStatus.LEARNING, learning_stage=2),  # review
+
+        # Ignored terms
+        TermProgress(term_id=english_terms[0].id, status=LearningStatus.IGNORE, learning_stage=1),  # ignore
+        TermProgress(term_id=english_terms[1].id, status=LearningStatus.IGNORE, learning_stage=1),  # skip
+    ]
+
+    for progress in progress_entries:
+        db.session.add(progress)
+
+    db.session.commit()
+
+    return {
+        "delta_book_id": books[0].id,
+        "epsilon_book_id": books[1].id,
+        "zeta_book_id": books[2].id,
+        "english_id": english.id,
+        "ignore_term_id": english_terms[0].id,
+        "skip_term_id": english_terms[1].id,
+        "review_term_id": english_terms[2].id,
+        "study_term_id": english_terms[3].id,
+        "common_term_id": english_terms[4].id,
+        "word_term_id": english_terms[5].id,
+    }
+
+
+class TestGetBookSummariesEndpoint:
+    """Test cases for GET /api/books endpoint (book summaries)."""
+
+    def test_get_book_summaries_default_params(self, client: FlaskClient, books_with_progress: dict[str, int]) -> None:
+        """Test basic book summaries retrieval with default parameters."""
+        # Given
+        english_id = books_with_progress["english_id"]
+
+        # When
+        response = client.get(f"/api/books?language_id={english_id}")
+
+        # Then
+        assert response.status_code == 200
+        data = response.get_json()
+        assert "summaries" in data
+        summaries = data["summaries"]
+        assert len(summaries) == 3  # Only non-archived English books
+
+        # Verify books are sorted by title (default)
+        titles = [s["title"] for s in summaries]
+        assert titles == ["Alpha Book", "Beta Book", "Gamma Book"]
+
+        # Verify term counts for Alpha Book (first in alphabetical order)
+        alpha_summary = summaries[0]
+        assert alpha_summary["book_id"] == books_with_progress["alpha_book_id"]
+        assert alpha_summary["title"] == "Alpha Book"
+        assert alpha_summary["total_terms"] == 4
+        assert alpha_summary["known_terms"] == 3  # hello(2) + world(1) = 3 term occurrences
+        assert alpha_summary["learning_terms"] == 1  # test(1) = 1 term occurrence
+        assert alpha_summary["unknown_terms"] == 0  # total - known - learning = 4-3-1 = 0
+
+    def test_get_book_summaries_sort_by_learning_terms_desc(self, client: FlaskClient, books_with_progress: dict[str, int]) -> None:
+        """Test sorting by learning terms in descending order."""
+        # Given
+        english_id = books_with_progress["english_id"]
+
+        # When
+        response = client.get(f"/api/books?language_id={english_id}&sort_option=learning_terms&sort_order=desc")
+
+        # Then
+        assert response.status_code == 200
+        data = response.get_json()
+        summaries = data["summaries"]
+
+        # Should be ordered by learning_terms DESC: Beta(3), Gamma(3), Alpha(1)
+        # When learning terms are equal (Beta=Gamma=3), secondary sort by title (B before G)
+        learning_counts = [s["learning_terms"] for s in summaries]
+        assert learning_counts == [3, 3, 1]
+        assert summaries[0]["title"] == "Beta Book"   # 3 learning terms
+        assert summaries[1]["title"] == "Gamma Book"  # 3 learning terms, "Gamma" > "Beta" alphabetically
+        assert summaries[2]["title"] == "Alpha Book"  # 1 learning term
+
+    def test_get_book_summaries_sort_by_unknown_terms_asc(self, client: FlaskClient, books_with_progress: dict[str, int]) -> None:
+        """Test sorting by unknown terms in ascending order."""
+        # Given
+        english_id = books_with_progress["english_id"]
+
+        # When
+        response = client.get(f"/api/books?language_id={english_id}&sort_option=unknown_terms&sort_order=asc")
+
+        # Then
+        assert response.status_code == 200
+        data = response.get_json()
+        summaries = data["summaries"]
+
+        # Should be ordered by unknown_terms ASC: Alpha(0), Beta(1), Gamma(2)
+        unknown_counts = [s["unknown_terms"] for s in summaries]
+        assert unknown_counts == [0, 1, 2]
+        assert summaries[0]["title"] == "Alpha Book"  # 0 unknown terms
+        assert summaries[1]["title"] == "Beta Book"   # 1 unknown term
+        assert summaries[2]["title"] == "Gamma Book"  # 2 unknown terms
+
+    def test_get_book_summaries_sort_by_last_read_desc(self, client: FlaskClient, books_with_progress: dict[str, int]) -> None:
+        """Test sorting by last read date in descending order."""
+        # Given
+        english_id = books_with_progress["english_id"]
+
+        # When
+        response = client.get(f"/api/books?language_id={english_id}&sort_option=last_read&sort_order=desc")
+
+        # Then
+        assert response.status_code == 200
+        data = response.get_json()
+        summaries = data["summaries"]
+
+        # Should be ordered by last_read DESC: Beta(2024-02-10), Alpha(2024-01-15), Gamma(2024-01-05)
+        titles = [s["title"] for s in summaries]
+        assert titles == ["Beta Book", "Alpha Book", "Gamma Book"]
+
+    def test_get_book_summaries_pagination(self, client: FlaskClient, books_with_progress: dict[str, int]) -> None:
+        """Test pagination with different page sizes."""
+        # Given
+        english_id = books_with_progress["english_id"]
+
+        # When - First page with page size 2
+        response = client.get(f"/api/books?language_id={english_id}&page=1&per_page=2")
+
+        # Then
+        assert response.status_code == 200
+        data = response.get_json()
+        summaries = data["summaries"]
+        assert len(summaries) == 2
+        assert summaries[0]["title"] == "Alpha Book"
+        assert summaries[1]["title"] == "Beta Book"
+
+        # When - Second page with page size 2
+        response = client.get(f"/api/books?language_id={english_id}&page=2&per_page=2")
+
+        # Then
+        assert response.status_code == 200
+        data = response.get_json()
+        summaries = data["summaries"]
+        assert len(summaries) == 1
+        assert summaries[0]["title"] == "Gamma Book"
+
+    def test_get_book_summaries_language_filtering(self, client: FlaskClient, books_with_progress: dict[str, int]) -> None:
+        """Test that books are correctly filtered by language."""
+        # Given
+        spanish_id = books_with_progress["spanish_id"]
+
+        # When
+        response = client.get(f"/api/books?language_id={spanish_id}")
+
+        # Then
+        assert response.status_code == 200
+        data = response.get_json()
+        summaries = data["summaries"]
+        assert len(summaries) == 1
+        assert summaries[0]["title"] == "Libro Español"
+        assert summaries[0]["known_terms"] == 1
+        assert summaries[0]["learning_terms"] == 1
+        assert summaries[0]["unknown_terms"] == 0
+
+    def test_get_book_summaries_archived_books_excluded(self, client: FlaskClient, books_with_progress: dict[str, int]) -> None:
+        """Test that archived books are excluded from results."""
+        # Given
+        english_id = books_with_progress["english_id"]
+
+        # When
+        response = client.get(f"/api/books?language_id={english_id}")
+
+        # Then
+        assert response.status_code == 200
+        data = response.get_json()
+        summaries = data["summaries"]
+
+        # Verify archived book is not included
+        titles = [s["title"] for s in summaries]
+        assert "Archived Book" not in titles
+        assert len(summaries) == 3  # Only non-archived books
+
+    def test_get_book_summaries_no_books_for_language(self, client: FlaskClient, german: Language) -> None:
+        """Test response when no books exist for specified language."""
+        # Given - German language with no books
+
+        # When
+        response = client.get(f"/api/books?language_id={german.id}")
+
+        # Then
+        assert response.status_code == 200
+        data = response.get_json()
+        assert "summaries" in data
+        assert data["summaries"] == []
+
+    def test_get_book_summaries_no_progress_data(self, client: FlaskClient, english: Language) -> None:
+        """Test book summaries when books have no term progress."""
+        # Given - Create a book with no progress data
+        book = Book(
+            title="No Progress Book",
+            language_id=english.id,
+            is_archived=False,
+        )
+        db.session.add(book)
+        db.session.flush()
+
+        term = Term(norm="word", display="word", language_id=english.id, token_count=1)
+        db.session.add(term)
+        db.session.flush()
+
+        vocab = BookVocab(book_id=book.id, term_id=term.id, term_count=3)
+        db.session.add(vocab)
+
+        totals = BookTotals(book_id=book.id, total_terms=3, total_types=1)
+        db.session.add(totals)
+        db.session.commit()
+
+        # When
+        response = client.get(f"/api/books?language_id={english.id}")
+
+        # Then
+        assert response.status_code == 200
+        data = response.get_json()
+        summaries = data["summaries"]
+
+        # Find the book with no progress
+        no_progress_book = next(s for s in summaries if s["title"] == "No Progress Book")
+        assert no_progress_book["total_terms"] == 3
+        assert no_progress_book["known_terms"] == 0
+        assert no_progress_book["learning_terms"] == 0
+        assert no_progress_book["unknown_terms"] == 3
+
+    def test_get_book_summaries_missing_language_id(self, client: FlaskClient) -> None:
+        """Test validation error when language_id is missing."""
+        # Given - No language_id parameter
+
+        # When
+        response = client.get("/api/books")
+
+        # Then
+        assert response.status_code == 422  # Validation error
+
+    def test_get_book_summaries_invalid_language_id(self, client: FlaskClient) -> None:
+        """Test error handling for non-existent language_id."""
+        # Given
+        invalid_language_id = 99999
+
+        # When
+        response = client.get(f"/api/books?language_id={invalid_language_id}")
+
+        # Then
+        assert response.status_code == 200  # Should return empty results, not error
+        data = response.get_json()
+        assert data["summaries"] == []
+
+    @pytest.mark.parametrize("sort_option", ["title", "last_read", "learning_terms", "unknown_terms"])
+    def test_get_book_summaries_all_sort_options(self, client: FlaskClient, books_with_progress: dict[str, int], sort_option: str) -> None:
+        """Test all valid sort options work correctly."""
+        # Given
+        english_id = books_with_progress["english_id"]
+
+        # When
+        response = client.get(f"/api/books?language_id={english_id}&sort_option={sort_option}")
+
+        # Then
+        assert response.status_code == 200
+        data = response.get_json()
+        assert "summaries" in data
+        assert len(data["summaries"]) == 3
+
+    @pytest.mark.parametrize("sort_order", ["asc", "desc"])
+    def test_get_book_summaries_both_sort_orders(self, client: FlaskClient, books_with_progress: dict[str, int], sort_order: str) -> None:
+        """Test both ascending and descending sort orders."""
+        # Given
+        english_id = books_with_progress["english_id"]
+
+        # When
+        response = client.get(f"/api/books?language_id={english_id}&sort_order={sort_order}")
+
+        # Then
+        assert response.status_code == 200
+        data = response.get_json()
+        summaries = data["summaries"]
+        assert len(summaries) == 3
+
+        # Verify ordering (default sort is by title)
+        titles = [s["title"] for s in summaries]
+        if sort_order == "asc":
+            assert titles == ["Alpha Book", "Beta Book", "Gamma Book"]
+        else:
+            assert titles == ["Gamma Book", "Beta Book", "Alpha Book"]
+
+    def test_get_book_summaries_invalid_sort_option(self, client: FlaskClient, books_with_progress: dict[str, int]) -> None:
+        """Test handling of invalid sort option."""
+        # Given
+        english_id = books_with_progress["english_id"]
+
+        # When
+        response = client.get(f"/api/books?language_id={english_id}&sort_option=invalid_option")
+
+        # Then
+        assert response.status_code == 422  # Validation error
+
+    def test_get_book_summaries_invalid_sort_order(self, client: FlaskClient, books_with_progress: dict[str, int]) -> None:
+        """Test handling of invalid sort order."""
+        # Given
+        english_id = books_with_progress["english_id"]
+
+        # When
+        response = client.get(f"/api/books?language_id={english_id}&sort_order=invalid_order")
+
+        # Then
+        assert response.status_code == 422  # Validation error
+
+    def test_get_book_summaries_invalid_pagination_params(self, client: FlaskClient, books_with_progress: dict[str, int]) -> None:
+        """Test handling of invalid pagination parameters."""
+        # Given
+        english_id = books_with_progress["english_id"]
+
+        test_cases = [
+            {"page": 0, "per_page": 10},  # Invalid page (must be >= 1)
+            {"page": 1, "per_page": 0},   # Invalid per_page (must be >= 1)
+            {"page": 1, "per_page": 101}, # Invalid per_page (max 100)
+        ]
+
+        for params in test_cases:
+            # When
+            response = client.get(f"/api/books?language_id={english_id}&page={params['page']}&per_page={params['per_page']}")
+
+            # Then
+            assert response.status_code == 422  # Validation error
+
+    def test_get_book_summaries_edge_case_pagination(self, client: FlaskClient, books_with_progress: dict[str, int]) -> None:
+        """Test pagination edge cases."""
+        # Given
+        english_id = books_with_progress["english_id"]
+
+        # When - Request page beyond available data
+        response = client.get(f"/api/books?language_id={english_id}&page=10&per_page=10")
+
+        # Then
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["summaries"] == []  # Should return empty list
+
+    def test_get_book_summaries_response_structure(self, client: FlaskClient, books_with_progress: dict[str, int]) -> None:
+        """Test the structure of the response data."""
+        # Given
+        english_id = books_with_progress["english_id"]
+
+        # When
+        response = client.get(f"/api/books?language_id={english_id}")
+
+        # Then
+        assert response.status_code == 200
+        assert response.content_type == "application/json"
+
+        data = response.get_json()
+        assert isinstance(data, dict)
+        assert "summaries" in data
+        assert isinstance(data["summaries"], list)
+
+        # Verify each summary has correct structure
+        for summary in data["summaries"]:
+            assert isinstance(summary, dict)
+            required_fields = [
+                "book_id", "title", "cover_art_filepath",
+                "total_terms", "known_terms", "learning_terms", "unknown_terms"
+            ]
+            for field in required_fields:
+                assert field in summary
+
+            # Verify data types
+            assert isinstance(summary["book_id"], int)
+            assert isinstance(summary["title"], str)
+            assert isinstance(summary["total_terms"], int)
+            assert isinstance(summary["known_terms"], int)
+            assert isinstance(summary["learning_terms"], int)
+            assert isinstance(summary["unknown_terms"], int)
+
+    def test_get_book_summaries_term_count_consistency(self, client: FlaskClient, books_with_progress: dict[str, int]) -> None:
+        """Test that term counts are mathematically consistent."""
+        # Given
+        english_id = books_with_progress["english_id"]
+
+        # When
+        response = client.get(f"/api/books?language_id={english_id}")
+
+        # Then
+        assert response.status_code == 200
+        data = response.get_json()
+
+        for summary in data["summaries"]:
+            # Verify that known + learning + unknown <= total
+            # (Equality holds only when no ignored terms are present)
+            calculated_total = summary["known_terms"] + summary["learning_terms"] + summary["unknown_terms"]
+            assert calculated_total <= summary["total_terms"], (
+                f"Visible term count exceeds total for book {summary['title']}: "
+                f"known({summary['known_terms']}) + learning({summary['learning_terms']}) + "
+                f"unknown({summary['unknown_terms']}) = {calculated_total}, "
+                f"but total_terms = {summary['total_terms']}"
+            )
+
+            # For the original fixture books (no ignored terms), they should be equal
+            if summary["title"] in ["Alpha Book", "Beta Book", "Gamma Book"]:
+                assert calculated_total == summary["total_terms"], (
+                    f"Term count mismatch for book without ignored terms {summary['title']}: "
+                    f"known({summary['known_terms']}) + learning({summary['learning_terms']}) + "
+                    f"unknown({summary['unknown_terms']}) = {calculated_total}, "
+                    f"but total_terms = {summary['total_terms']}"
+                )
+
+
+class TestGetBookSummariesIgnoredTerms:
+    """Test cases for book summaries endpoint with ignored terms functionality."""
+
+    def test_book_summaries_with_ignored_terms_basic(self, client: FlaskClient, books_with_ignored_terms: dict[str, int]) -> None:
+        """Test book summaries calculation when books have ignored terms."""
+        # Given
+        english_id = books_with_ignored_terms["english_id"]
+
+        # When
+        response = client.get(f"/api/books?language_id={english_id}")
+
+        # Then
+        assert response.status_code == 200
+        data = response.get_json()
+        summaries = data["summaries"]
+        assert len(summaries) == 3  # Delta, Epsilon, Zeta
+
+        # Find each book by title
+        delta_book = next(s for s in summaries if s["title"] == "Delta Book")
+        epsilon_book = next(s for s in summaries if s["title"] == "Epsilon Book")
+        zeta_book = next(s for s in summaries if s["title"] == "Zeta Book")
+
+        # Verify Delta Book (mixed statuses with ignored terms)
+        assert delta_book["book_id"] == books_with_ignored_terms["delta_book_id"]
+        assert delta_book["total_terms"] == 10
+        assert delta_book["known_terms"] == 3   # study(1) + common(2)
+        assert delta_book["learning_terms"] == 2  # review(2)
+        assert delta_book["unknown_terms"] == 1   # word(1) - ignored terms are subtracted
+
+        # Verify Epsilon Book (all terms ignored)
+        assert epsilon_book["book_id"] == books_with_ignored_terms["epsilon_book_id"]
+        assert epsilon_book["total_terms"] == 5
+        assert epsilon_book["known_terms"] == 0
+        assert epsilon_book["learning_terms"] == 0
+        assert epsilon_book["unknown_terms"] == 0  # All terms are ignored, so unknown = 0
+
+        # Verify Zeta Book (no ignored terms - backward compatibility)
+        assert zeta_book["book_id"] == books_with_ignored_terms["zeta_book_id"]
+        assert zeta_book["total_terms"] == 7
+        assert zeta_book["known_terms"] == 3   # study(2) + common(1)
+        assert zeta_book["learning_terms"] == 1  # review(1)
+        assert zeta_book["unknown_terms"] == 3   # word(3)
+
+    def test_book_summaries_all_terms_ignored_edge_case(self, client: FlaskClient, books_with_ignored_terms: dict[str, int]) -> None:
+        """Test edge case where all terms in a book are ignored."""
+        # Given
+        english_id = books_with_ignored_terms["english_id"]
+
+        # When
+        response = client.get(f"/api/books?language_id={english_id}&sort_option=title")
+
+        # Then
+        assert response.status_code == 200
+        data = response.get_json()
+        summaries = data["summaries"]
+
+        epsilon_book = next(s for s in summaries if s["title"] == "Epsilon Book")
+
+        # When all terms are ignored, unknown_terms should be 0
+        assert epsilon_book["known_terms"] == 0
+        assert epsilon_book["learning_terms"] == 0
+        assert epsilon_book["unknown_terms"] == 0
+        assert epsilon_book["total_terms"] == 5  # All 5 terms are ignored
+
+    def test_book_summaries_no_ignored_terms_backward_compatibility(self, client: FlaskClient, books_with_ignored_terms: dict[str, int]) -> None:
+        """Test that books with no ignored terms work the same as before."""
+        # Given
+        english_id = books_with_ignored_terms["english_id"]
+
+        # When
+        response = client.get(f"/api/books?language_id={english_id}")
+
+        # Then
+        assert response.status_code == 200
+        data = response.get_json()
+        summaries = data["summaries"]
+
+        zeta_book = next(s for s in summaries if s["title"] == "Zeta Book")
+
+        # Verify calculations work correctly when no ignored terms present
+        calculated_total = zeta_book["known_terms"] + zeta_book["learning_terms"] + zeta_book["unknown_terms"]
+        assert calculated_total == zeta_book["total_terms"]
+        assert zeta_book["known_terms"] == 3
+        assert zeta_book["learning_terms"] == 1
+        assert zeta_book["unknown_terms"] == 3
+
+    def test_book_summaries_term_count_consistency_with_ignored(self, client: FlaskClient, books_with_ignored_terms: dict[str, int]) -> None:
+        """Test that term counts remain mathematically consistent when ignored terms are present."""
+        # Given
+        english_id = books_with_ignored_terms["english_id"]
+
+        # When
+        response = client.get(f"/api/books?language_id={english_id}")
+
+        # Then
+        assert response.status_code == 200
+        data = response.get_json()
+
+        for summary in data["summaries"]:
+            # The key insight: known + learning + unknown + ignored = total
+            # But the API only returns known + learning + unknown (ignored is internal)
+            # So: known + learning + unknown <= total (with equality only when no ignored terms)
+            visible_total = summary["known_terms"] + summary["learning_terms"] + summary["unknown_terms"]
+            assert visible_total <= summary["total_terms"], (
+                f"Visible term count exceeds total for book {summary['title']}: "
+                f"known({summary['known_terms']}) + learning({summary['learning_terms']}) + "
+                f"unknown({summary['unknown_terms']}) = {visible_total}, "
+                f"but total_terms = {summary['total_terms']}"
+            )
+
+            # For books with no ignored terms, they should be equal
+            if summary["title"] == "Zeta Book":
+                assert visible_total == summary["total_terms"]
+
+    def test_book_summaries_sorting_with_ignored_terms(self, client: FlaskClient, books_with_ignored_terms: dict[str, int]) -> None:
+        """Test that sorting works correctly when ignored terms affect unknown_terms counts."""
+        # Given
+        english_id = books_with_ignored_terms["english_id"]
+
+        # When - Sort by unknown terms ascending
+        response = client.get(f"/api/books?language_id={english_id}&sort_option=unknown_terms&sort_order=asc")
+
+        # Then
+        assert response.status_code == 200
+        data = response.get_json()
+        summaries = data["summaries"]
+
+        # Should be ordered by unknown_terms ASC: Epsilon(0), Delta(1), Zeta(3)
+        unknown_counts = [s["unknown_terms"] for s in summaries]
+        assert unknown_counts == [0, 1, 3]
+        assert summaries[0]["title"] == "Epsilon Book"  # 0 unknown (all ignored)
+        assert summaries[1]["title"] == "Delta Book"    # 1 unknown
+        assert summaries[2]["title"] == "Zeta Book"     # 3 unknown
+
+    def test_book_summaries_mixed_ignored_scenarios(self, client: FlaskClient, books_with_ignored_terms: dict[str, int]) -> None:
+        """Test multiple books with different ignored term patterns."""
+        # Given
+        english_id = books_with_ignored_terms["english_id"]
+
+        # When
+        response = client.get(f"/api/books?language_id={english_id}&sort_option=learning_terms&sort_order=desc")
+
+        # Then
+        assert response.status_code == 200
+        data = response.get_json()
+        summaries = data["summaries"]
+
+        # Should be ordered by learning_terms DESC: Delta(2), Zeta(1), Epsilon(0)
+        learning_counts = [s["learning_terms"] for s in summaries]
+        assert learning_counts == [2, 1, 0]
+
+        # Verify each book maintains correct totals despite ignored terms
+        for summary in summaries:
+            assert summary["known_terms"] >= 0
+            assert summary["learning_terms"] >= 0
+            assert summary["unknown_terms"] >= 0
+            assert summary["total_terms"] > 0
+
+            # The sum of visible terms should never exceed total
+            visible_sum = summary["known_terms"] + summary["learning_terms"] + summary["unknown_terms"]
+            assert visible_sum <= summary["total_terms"]
+
+    def test_book_summaries_pagination_with_ignored_terms(self, client: FlaskClient, books_with_ignored_terms: dict[str, int]) -> None:
+        """Test that pagination works correctly with ignored terms present."""
+        # Given
+        english_id = books_with_ignored_terms["english_id"]
+
+        # When - Get first page with page size 2
+        response = client.get(f"/api/books?language_id={english_id}&page=1&per_page=2&sort_option=title")
+
+        # Then
+        assert response.status_code == 200
+        data = response.get_json()
+        summaries = data["summaries"]
+        assert len(summaries) == 2
+
+        # Verify first two books alphabetically
+        assert summaries[0]["title"] == "Delta Book"
+        assert summaries[1]["title"] == "Epsilon Book"
+
+        # When - Get second page
+        response = client.get(f"/api/books?language_id={english_id}&page=2&per_page=2&sort_option=title")
+
+        # Then
+        assert response.status_code == 200
+        data = response.get_json()
+        summaries = data["summaries"]
+        assert len(summaries) == 1
+        assert summaries[0]["title"] == "Zeta Book"
 
