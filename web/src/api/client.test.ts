@@ -10,6 +10,11 @@ import type {
   SortOrder,
 } from './types'
 
+// Mock notistack
+vi.mock('notistack', () => ({
+  enqueueSnackbar: vi.fn(),
+}))
+
 // Mock console.error for testing error handling
 const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 

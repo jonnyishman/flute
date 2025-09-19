@@ -1,11 +1,4 @@
-// Import will be added when notistack is installed
-// import { enqueueSnackbar } from 'notistack'
-
-// Temporary error handler until notistack is installed
-const enqueueSnackbar = (message: string, options: any) => {
-  console.error(`[API Error] ${message}`, options)
-  // This will be replaced with actual notistack implementation
-}
+import { enqueueSnackbar } from 'notistack'
 import type {
   ApiError,
   BookSummariesRequest,
@@ -52,7 +45,21 @@ class ApiClient {
     if (params) {
       Object.entries(params).forEach(([key, value]) => {
         if (value !== undefined && value !== null) {
-          url.searchParams.append(key, String(value))
+          // Properly convert values to strings, handling special cases
+          if (typeof value === 'boolean') {
+            url.searchParams.append(key, value ? 'true' : 'false')
+          } else if (typeof value === 'number') {
+            url.searchParams.append(key, value.toString())
+          } else if (Array.isArray(value)) {
+            // Handle arrays by adding multiple params with same key
+            value.forEach(item => {
+              if (item !== undefined && item !== null) {
+                url.searchParams.append(key, String(item))
+              }
+            })
+          } else {
+            url.searchParams.append(key, String(value))
+          }
         }
       })
     }
@@ -136,14 +143,9 @@ class ApiClient {
   private handleError(error: ApiError, status: number): void {
     const message = error.msg || error.error || 'An unexpected error occurred'
 
-    // Use MUI Snackbar via notistack for error display
+    // Use notistack for error display
     enqueueSnackbar(message, {
       variant: 'error',
-      autoHideDuration: 5000,
-      anchorOrigin: {
-        vertical: 'bottom',
-        horizontal: 'center',
-      },
     })
 
     // Log error for debugging
@@ -153,11 +155,6 @@ class ApiClient {
   private handleNetworkError(): void {
     enqueueSnackbar('Network error. Please check your connection and try again.', {
       variant: 'error',
-      autoHideDuration: 5000,
-      anchorOrigin: {
-        vertical: 'bottom',
-        horizontal: 'center',
-      },
     })
   }
 

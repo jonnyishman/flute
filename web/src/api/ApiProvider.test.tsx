@@ -1,6 +1,17 @@
 import { render, screen } from '@testing-library/react'
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { ApiProvider } from './ApiProvider'
+
+// Mock notistack
+vi.mock('notistack', () => ({
+  SnackbarProvider: ({ children }: any) => children,
+  MaterialDesignContent: () => null,
+}))
+
+// Mock MUI styled
+vi.mock('@mui/material/styles', () => ({
+  styled: () => () => () => null,
+}))
 
 describe('ApiProvider', () => {
   it('should render children correctly', () => {
