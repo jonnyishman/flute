@@ -18,6 +18,7 @@ import PWABadge from './PWABadge.tsx'
 import { Book } from './types/book'
 import StoreProvider from './store/StoreProvider'
 import useBookProgress from './hooks/useBookProgress'
+import { ApiProvider } from './api'
 
 function LibraryPage() {
   const navigate = useNavigate()
@@ -66,15 +67,17 @@ function LibraryPage() {
 
 function App() {
   return (
-    <StoreProvider>
-      <Router>
-        <Routes>
-          <Route path="/" element={<LibraryPage />} />
-          <Route path="/upload" element={<BookUpload />} />
-          <Route path="/book/:bookId/chapter/:chapterId" element={<BookReader />} />
-        </Routes>
-      </Router>
-    </StoreProvider>
+    <ApiProvider>
+      <StoreProvider>
+        <Router>
+          <Routes>
+            <Route path="/" element={<LibraryPage />} />
+            <Route path="/upload" element={<BookUpload />} />
+            <Route path="/book/:bookId/chapter/:chapterId" element={<BookReader />} />
+          </Routes>
+        </Router>
+      </StoreProvider>
+    </ApiProvider>
   )
 }
 

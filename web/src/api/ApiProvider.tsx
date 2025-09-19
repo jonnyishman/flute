@@ -1,34 +1,46 @@
-// import { SnackbarProvider } from 'notistack'
-// import { Alert } from '@mui/material'
+import { SnackbarProvider, MaterialDesignContent } from 'notistack'
+import { styled } from '@mui/material/styles'
 import type { ReactNode } from 'react'
 
 interface ApiProviderProps {
   children: ReactNode
 }
 
-// Temporary implementation until notistack is installed
-// This will be replaced with SnackbarProvider from notistack
-export function ApiProvider({ children }: ApiProviderProps) {
-  // Once notistack is installed, uncomment the following:
-  // return (
-  //   <SnackbarProvider
-  //     maxSnack={3}
-  //     autoHideDuration={5000}
-  //     anchorOrigin={{
-  //       vertical: 'bottom',
-  //       horizontal: 'center',
-  //     }}
-  //     Components={{
-  //       error: (props) => <Alert severity="error" {...props} />,
-  //       success: (props) => <Alert severity="success" {...props} />,
-  //       warning: (props) => <Alert severity="warning" {...props} />,
-  //       info: (props) => <Alert severity="info" {...props} />,
-  //     }}
-  //   >
-  //     {children}
-  //   </SnackbarProvider>
-  // )
+// Styled components for custom notification variants
+const StyledMaterialDesignContent = styled(MaterialDesignContent)(({ theme }) => ({
+  '&.notistack-MuiContent-success': {
+    backgroundColor: theme.palette.success.main,
+  },
+  '&.notistack-MuiContent-error': {
+    backgroundColor: theme.palette.error.main,
+  },
+  '&.notistack-MuiContent-warning': {
+    backgroundColor: theme.palette.warning.main,
+  },
+  '&.notistack-MuiContent-info': {
+    backgroundColor: theme.palette.info.main,
+  },
+}))
 
-  // Temporary passthrough until notistack is installed
-  return <>{children}</>
+export function ApiProvider({ children }: ApiProviderProps) {
+  return (
+    <SnackbarProvider
+      maxSnack={3}
+      autoHideDuration={5000}
+      anchorOrigin={{
+        vertical: 'bottom',
+        horizontal: 'center',
+      }}
+      Components={{
+        success: StyledMaterialDesignContent,
+        error: StyledMaterialDesignContent,
+        warning: StyledMaterialDesignContent,
+        info: StyledMaterialDesignContent,
+        default: StyledMaterialDesignContent,
+      }}
+      preventDuplicate
+    >
+      {children}
+    </SnackbarProvider>
+  )
 }
