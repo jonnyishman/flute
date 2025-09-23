@@ -1292,27 +1292,21 @@ class TestGetChapterWithHighlights:
             book_id=book.id,
             chapter_number=1,
             content="The quick brown fox jumps over the lazy dog. The fox was very happy.",
-            word_count=13
+            word_count=14
         )
         db.session.add(chapter)
 
         # Create terms with user progress
         term_the = Term(language_id=english.id, norm="the", display="the", token_count=1)
-        term_fox = Term(language_id=english.id, norm="fox", display="fox", token_count=1)
+        term_fox = Term(language_id=english.id, norm="fox", display="Fox", token_count=1)
         term_happy = Term(language_id=english.id, norm="happy", display="happy", token_count=1)
         db.session.add_all([term_the, term_fox, term_happy])
         db.session.flush()
 
-        # Add BookVocab entries (required for optimized query)
-        vocab_the = BookVocab(book_id=book.id, term_id=term_the.id, term_count=3)
-        vocab_fox = BookVocab(book_id=book.id, term_id=term_fox.id, term_count=2)
-        vocab_happy = BookVocab(book_id=book.id, term_id=term_happy.id, term_count=1)
-        db.session.add_all([vocab_the, vocab_fox, vocab_happy])
-
-        # Add user progress (known and learning)
+        # Add user progress
         progress_the = TermProgress(term_id=term_the.id, status=LearningStatus.KNOWN)
         progress_fox = TermProgress(term_id=term_fox.id, status=LearningStatus.LEARNING, learning_stage=2)
-        progress_happy = TermProgress(term_id=term_happy.id, status=LearningStatus.IGNORE)  # Should not appear
+        progress_happy = TermProgress(term_id=term_happy.id, status=LearningStatus.IGNORE)
         db.session.add_all([progress_the, progress_fox, progress_happy])
         db.session.commit()
 
@@ -1327,26 +1321,51 @@ class TestGetChapterWithHighlights:
         chapter_data = data["chapter"]
         assert chapter_data["id"] == chapter.id
         assert chapter_data["chapter_number"] == 1
-        assert chapter_data["word_count"] == 13
+        assert chapter_data["word_count"] == 14
         assert "quick brown fox" in chapter_data["content"]
 
         # Verify highlights - should only include known/learning terms
         highlights = data["term_highlights"]
-        highlight_displays = [h["display"] for h in highlights]
-
-        assert "the" in highlight_displays
-        assert "fox" in highlight_displays
-        assert "happy" not in highlight_displays  # Ignored status
+        assert {h["display"] for h in highlights} == {term_the.display, term_fox.display, term_happy.display}
 
         # Verify term positions
-        the_highlights = [h for h in highlights if h["display"] == "the"]
-        assert len(the_highlights) == 3  # "the" appears three times (The, the, The)
+        the_highlights = sorted([h for h in highlights if h["display"] == term_the.display], key=lambda x: x["start_pos"])
+        assert the_highlights == [
+            {
+                "term_id": term_the.id,
+                "display": term_the.display,
+                "status": LearningStatus.KNOWN,
+                "learning_stage": None,
+                "start_pos": start_pos,
+                "end_pos": end_pos
+            }
+            for start_pos, end_pos in [(0, 3), (31, 34), (45, 48)]
+        ]
 
-        fox_highlight = next(h for h in highlights if h["display"] == "fox")
-        assert fox_highlight["status"] == LearningStatus.LEARNING
-        assert fox_highlight["learning_stage"] == 2
-        assert fox_highlight["start_pos"] > 0
-        assert fox_highlight["end_pos"] > fox_highlight["start_pos"]
+        fox_highlights = sorted([h for h in highlights if h["display"] == term_fox.display], key=lambda x: x["start_pos"])
+        assert fox_highlights == [
+            {
+                "term_id": term_fox.id,
+                "display": term_fox.display,
+                "status": LearningStatus.LEARNING,
+                "learning_stage": 2,
+                "start_pos": start_pos,
+                "end_pos": end_pos
+            }
+            for start_pos, end_pos in [(16, 19), (49, 52)]
+        ]
+
+        happy_highlights = [h for h in highlights if h["display"] == term_happy.display]
+        assert happy_highlights == [
+            {
+                "term_id": term_happy.id,
+                "display": term_happy.display,
+                "status": LearningStatus.IGNORE,
+                "learning_stage": None,
+                "start_pos": 62,
+                "end_pos": 67
+            }
+        ]
 
     def test_get_chapter_with_multi_token_highlights(self, client: FlaskClient, english: Language) -> None:
         """Test chapter highlights with multi-token terms."""
@@ -1359,7 +1378,7 @@ class TestGetChapterWithHighlights:
             book_id=book.id,
             chapter_number=1,
             content="New York is a big city. I love New York very much.",
-            word_count=11
+            word_count=12
         )
         db.session.add(chapter)
 
@@ -1370,11 +1389,6 @@ class TestGetChapterWithHighlights:
         term_big_city = Term(language_id=english.id, norm="big city", display="big city", token_count=2)
         db.session.add_all([term_new, term_york, term_new_york, term_big_city])
         db.session.flush()
-
-        # Add BookVocab entries for single-token terms (required for optimized query)
-        vocab_new = BookVocab(book_id=book.id, term_id=term_new.id, term_count=2)
-        vocab_york = BookVocab(book_id=book.id, term_id=term_york.id, term_count=2)
-        db.session.add_all([vocab_new, vocab_york])
 
         # Add progress for multi-token term and one single token
         progress_new_york = TermProgress(term_id=term_new_york.id, status=LearningStatus.KNOWN)
@@ -1409,6 +1423,56 @@ class TestGetChapterWithHighlights:
                 if i != j:
                     # No overlapping ranges
                     assert end1 <= start2 or end2 <= start1
+
+    def test_boundaries(self, client: FlaskClient, english: Language) -> None:
+        """Test chapter highlights obey token boundaries"""
+        # Given - Create content with multi-token phrases
+        book = Book(language_id=english.id, title="Multi-token Book")
+        db.session.add(book)
+        db.session.flush()
+
+        chapter = Chapter(
+            book_id=book.id,
+            chapter_number=1,
+            content="Pancakes do belong, but waffles do not.",
+            word_count=7
+        )
+        db.session.add(chapter)
+
+        # Create terms that should not be matched with the chatper, and one that can
+        term_cake = Term(language_id=english.id, norm="cake", display="cake", token_count=1)
+        term_long = Term(language_id=english.id, norm="long", display="Long", token_count=1)
+        term_belong_bob = Term(language_id=english.id, norm="belong bob", display="Belong Bob", token_count=2)
+        term_but_waffle = Term(language_id=english.id, norm="but waffle", display="but waffle", token_count=2)
+        term_not = Term(language_id=english.id, norm="not", display="Not", token_count=1)
+        db.session.add_all([term_cake, term_long, term_belong_bob, term_but_waffle, term_not])
+        db.session.flush()
+
+        # Add progress for multi-token term and one single token
+        progress_belong_bob = TermProgress(term_id=term_belong_bob.id, status=LearningStatus.KNOWN)
+        progress_cake = TermProgress(term_id=term_cake.id, status=LearningStatus.LEARNING, learning_stage=1)
+        progress_long = TermProgress(term_id=term_long.id, status=LearningStatus.LEARNING, learning_stage=3)
+        progress_but_waffle = TermProgress(term_id=term_but_waffle.id, status=LearningStatus.IGNORE)
+        progress_not = TermProgress(term_id=term_not.id, status=LearningStatus.KNOWN)
+        db.session.add_all([progress_belong_bob, progress_cake, progress_long, progress_but_waffle, progress_not])
+        db.session.commit()
+
+        # When
+        response = client.get(f"/api/books/{book.id}/chapters/1")
+
+        # Then
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["term_highlights"] == [
+            {
+                "term_id": term_not.id,
+                "display": term_not.display,
+                "status": LearningStatus.KNOWN,
+                "learning_stage": None,
+                "start_pos": 35,
+                "end_pos": 38
+            }
+        ]  # Only "not" should be highlighted
 
     def test_get_chapter_not_found(self, client: FlaskClient, english: Language) -> None:
         """Test retrieval of non-existent chapter."""
@@ -1446,7 +1510,7 @@ class TestGetChapterWithHighlights:
             book_id=book.id,
             chapter_number=1,
             content="Some random text without progress.",
-            word_count=6
+            word_count=5
         )
         db.session.add(chapter)
         db.session.commit()
@@ -1481,10 +1545,6 @@ class TestGetChapterWithHighlights:
         term = Term(language_id=english.id, norm="test", display="Test", token_count=1)
         db.session.add(term)
         db.session.flush()
-
-        # Add BookVocab entry (required for optimized query)
-        vocab = BookVocab(book_id=book.id, term_id=term.id, term_count=1)
-        db.session.add(vocab)
 
         progress = TermProgress(term_id=term.id, status=status, learning_stage=1)
         db.session.add(progress)
@@ -1525,11 +1585,6 @@ class TestGetChapterWithHighlights:
         term2 = Term(language_id=english.id, norm="test", display="test", token_count=1)
         db.session.add_all([term1, term2])
         db.session.flush()
-
-        # Add BookVocab entries
-        vocab1 = BookVocab(book_id=book.id, term_id=term1.id, term_count=1)
-        vocab2 = BookVocab(book_id=book.id, term_id=term2.id, term_count=1)
-        db.session.add_all([vocab1, vocab2])
 
         # Add progress for single tokens only
         progress1 = TermProgress(term_id=term1.id, status=LearningStatus.KNOWN)
