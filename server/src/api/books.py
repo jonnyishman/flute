@@ -1,6 +1,6 @@
 """API routes for book-related operations"""
 import enum
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, NamedTuple, cast
 
 import sqlalchemy as sa
 from flask import abort
@@ -251,3 +251,215 @@ def get_book_summaries(query: BookSummariesRequest) -> BookSummariesResponse:
     )
     rows = db.session.execute(stmt).all()
     return BookSummariesResponse(summaries=[BookSummary.model_validate(row) for row in rows])
+
+
+class TermHighlight(BaseModel):
+    """A highlighted term in chapter text."""
+    term_id: int
+    display: str
+    start_pos: int
+    end_pos: int
+    status: LearningStatus
+    learning_stage: int | None = None
+
+
+class ChapterResponse(BaseModel):
+    """Chapter details."""
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    chapter_number: int
+    content: str
+    word_count: int
+
+
+class ChapterWithHighlightsResponse(BaseModel):
+    """Chapter content with term highlights for user's known/learning terms."""
+    chapter: ChapterResponse
+    term_highlights: list[TermHighlight]
+
+
+class TermInfo(NamedTuple):
+    term_id: int
+    norm: str
+    display: str
+    token_count: int
+    status: LearningStatus
+    learning_stage: int | None
+
+
+@api_bp.route("/books/<int:book_id>/chapters/<int:chapter_number>", methods=["GET"])
+@validate()
+def get_chapter_with_highlights(book_id: int, chapter_number: int) -> ChapterWithHighlightsResponse:
+    """
+    Get chapter content with highlights for user's known/learning terms.
+
+    Returns chapter text and positions of all terms the user has progress on,
+    supporting both single-token and multi-token terms.
+    """
+    # Get the book, chapter, and langugage
+    stmt = (
+        sa.select(Book, Chapter, Language)
+        .outerjoin(Chapter, sa.and_(Chapter.book_id == Book.id, Chapter.chapter_number == chapter_number))
+        .join(Language, Language.id == Book.language_id)
+        .where(Book.id == book_id)
+    )
+    if (result := db.session.execute(stmt).one_or_none()) is None:
+        abort(404, description=f"Book {book_id} not found")
+
+    book, chapter, language = result.tuple()
+    if chapter is None:
+        abort(404, description=f"Chapter {chapter_number} not found in book {book_id}")
+
+    parser = get_parser(language.parser_type)
+    parsed_tokens = parser.get_parsed_tokens(chapter.content, language)
+
+    # Extract normalized word tokens for single-token matching
+    if not (chapter_tokens := {token.norm for token in parsed_tokens if token.is_word}):
+        return ChapterWithHighlightsResponse(
+            chapter=ChapterResponse.model_validate(chapter),
+            term_highlights=[]
+        )
+
+    # Phase 1: Query single-token terms that appear in chapter
+    all_user_terms_stmt = (
+        sa.select(
+            Term.id,
+            Term.norm,
+            Term.display,
+            Term.token_count,
+            TermProgress.status,
+            TermProgress.learning_stage,
+        )
+        .select_from(
+            sa.join(Term, TermProgress, Term.id == TermProgress.term_id)
+        )
+        .where(
+            Term.language_id == book.language_id,
+            # Retrieve all multi-token terms, but only single-token terms that appear in chapter
+            sa.or_(
+                sa.and_(Term.token_count == 1, Term.norm.in_(chapter_tokens)),
+                Term.token_count > 1
+            ),
+        )
+    )
+    all_user_terms = [TermInfo(*row.tuple()) for row in db.session.execute(all_user_terms_stmt).all()]
+
+    # Phase 2: Term-first highlighting, optimized for rare multi-token terms
+    highlights = _find_term_highlights(all_user_terms, parsed_tokens)
+
+    return ChapterWithHighlightsResponse(
+        chapter=ChapterResponse.model_validate(chapter),
+        term_highlights=highlights
+    )
+
+
+def _find_term_highlights(
+    user_terms: list[TermInfo], parsed_tokens: list["ParsedToken"]
+) -> list[TermHighlight]:
+    """
+    Term-first highlighting, optimised for scenarios where multi-token terms are rare.
+
+    - Hash lookup for single tokens O(1)
+    - Targeted search for multi-token terms O(k*n) where k is small
+    - Greedy longest-first matching for overlaps
+    """
+    if not user_terms:
+        return []
+
+    # Separate single and multi-token terms for different processing strategies
+    single_token_lookup: dict[str, tuple[int, str, LearningStatus, int | None]] = {}
+    multi_token_terms: list[tuple[int, list[str], str, int, LearningStatus, int | None]] = []
+
+    for term_info in user_terms:
+        if term_info.token_count == 1:
+            single_token_lookup[term_info.norm] = (
+                term_info.term_id, term_info.display, term_info.status, term_info.learning_stage
+            )
+        else:
+            # Pre-validate and parse multi-token terms
+            norm_tokens = term_info.norm.split()
+            multi_token_terms.append((
+                term_info.term_id,
+                norm_tokens,
+                term_info.display,
+                term_info.token_count,
+                term_info.status,
+                term_info.learning_stage
+            ))
+
+    # Build token positions from pre-parsed tokens (single pass)
+    token_positions: list[tuple[str, int, int]] = []
+    char_pos = 0
+    for token in parsed_tokens:
+        token_start = char_pos
+        token_end = char_pos + len(token.token)
+        if token.is_word:
+            token_positions.append((token.norm, token_start, token_end))
+        char_pos = token_end
+
+    if not token_positions:
+        return []
+
+    # Efficient interval management for overlap detection
+    covered_intervals: list[tuple[int, int]] = []
+    highlights: list[TermHighlight] = []
+
+    def is_covered(start: int, end: int) -> bool:
+        """Check if interval overlaps with covered intervals. O(k) where k is small."""
+        for covered_start, covered_end in covered_intervals:
+            if covered_start >= end:  # Early termination due to sorted order
+                break
+            if covered_end > start:  # Overlap detected
+                return True
+        return False
+
+    def add_interval(start: int, end: int) -> None:
+        """Add interval maintaining sorted order. O(k) insertion."""
+        for i, (covered_start, _) in enumerate(covered_intervals):
+            if start <= covered_start:
+                covered_intervals.insert(i, (start, end))
+                return
+        covered_intervals.append((start, end))
+
+    # Phase 1: Process multi-token terms first (greedy longest-first)
+    # Sort by token count descending for greedy matching
+    multi_token_terms.sort(key=lambda x: x[3], reverse=True)
+
+    for term_id, norm_tokens, display, token_count, status, learning_stage in multi_token_terms:
+        # Targeted sliding window search - only search for this specific term
+        for i in range(len(token_positions) - token_count + 1):
+            # Check if consecutive tokens match this term
+            if all(token_positions[i + j][0] == norm_tokens[j] for j in range(token_count)):
+                start_pos = token_positions[i][1]
+                end_pos = token_positions[i + token_count - 1][2]
+
+                # Only add if not already covered by longer term
+                if not is_covered(start_pos, end_pos):
+                    highlights.append(TermHighlight(
+                        term_id=term_id,
+                        display=display,
+                        start_pos=start_pos,
+                        end_pos=end_pos,
+                        status=status,
+                        learning_stage=learning_stage
+                    ))
+                    add_interval(start_pos, end_pos)
+
+    # Phase 2: Process single tokens with O(1) hash lookup
+    for norm, start_pos, end_pos in token_positions:
+        if norm in single_token_lookup and not is_covered(start_pos, end_pos):
+            term_id, display, status, learning_stage = single_token_lookup[norm]
+            highlights.append(TermHighlight(
+                term_id=term_id,
+                display=display,
+                start_pos=start_pos,
+                end_pos=end_pos,
+                status=status,
+                learning_stage=learning_stage
+            ))
+            add_interval(start_pos, end_pos)
+
+    # Sort by position for frontend consumption
+    highlights.sort(key=lambda h: h.start_pos)
+    return highlights

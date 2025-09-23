@@ -1277,3 +1277,380 @@ class TestGetBookSummariesIgnoredTerms:
         assert len(summaries) == 1
         assert summaries[0]["title"] == "Zeta Book"
 
+
+class TestGetChapterWithHighlights:
+    """Test cases for GET /api/books/{book_id}/chapters/{chapter_number} endpoint."""
+
+    def test_get_chapter_with_highlights_success(self, client: FlaskClient, english: Language) -> None:
+        """Test successful retrieval of chapter with term highlights."""
+        # Given - Create a book with chapters and user term progress
+        book = Book(language_id=english.id, title="Test Book")
+        db.session.add(book)
+        db.session.flush()
+
+        chapter = Chapter(
+            book_id=book.id,
+            chapter_number=1,
+            content="The quick brown fox jumps over the lazy dog. The fox was very happy.",
+            word_count=14
+        )
+        db.session.add(chapter)
+
+        # Create terms with user progress
+        term_the = Term(language_id=english.id, norm="the", display="the", token_count=1)
+        term_fox = Term(language_id=english.id, norm="fox", display="Fox", token_count=1)
+        term_happy = Term(language_id=english.id, norm="happy", display="happy", token_count=1)
+        db.session.add_all([term_the, term_fox, term_happy])
+        db.session.flush()
+
+        # Add user progress
+        progress_the = TermProgress(term_id=term_the.id, status=LearningStatus.KNOWN)
+        progress_fox = TermProgress(term_id=term_fox.id, status=LearningStatus.LEARNING, learning_stage=2)
+        progress_happy = TermProgress(term_id=term_happy.id, status=LearningStatus.IGNORE)
+        db.session.add_all([progress_the, progress_fox, progress_happy])
+        db.session.commit()
+
+        # When
+        response = client.get(f"/api/books/{book.id}/chapters/1")
+
+        # Then
+        assert response.status_code == 200
+        data = response.get_json()
+
+        # Verify chapter data
+        chapter_data = data["chapter"]
+        assert chapter_data["id"] == chapter.id
+        assert chapter_data["chapter_number"] == 1
+        assert chapter_data["word_count"] == 14
+        assert "quick brown fox" in chapter_data["content"]
+
+        # Verify highlights - should only include known/learning terms
+        highlights = data["term_highlights"]
+        assert {h["display"] for h in highlights} == {term_the.display, term_fox.display, term_happy.display}
+
+        # Verify term positions
+        the_highlights = sorted([h for h in highlights if h["display"] == term_the.display], key=lambda x: x["start_pos"])
+        assert the_highlights == [
+            {
+                "term_id": term_the.id,
+                "display": term_the.display,
+                "status": LearningStatus.KNOWN,
+                "learning_stage": None,
+                "start_pos": start_pos,
+                "end_pos": end_pos
+            }
+            for start_pos, end_pos in [(0, 3), (31, 34), (45, 48)]
+        ]
+
+        fox_highlights = sorted([h for h in highlights if h["display"] == term_fox.display], key=lambda x: x["start_pos"])
+        assert fox_highlights == [
+            {
+                "term_id": term_fox.id,
+                "display": term_fox.display,
+                "status": LearningStatus.LEARNING,
+                "learning_stage": 2,
+                "start_pos": start_pos,
+                "end_pos": end_pos
+            }
+            for start_pos, end_pos in [(16, 19), (49, 52)]
+        ]
+
+        happy_highlights = [h for h in highlights if h["display"] == term_happy.display]
+        assert happy_highlights == [
+            {
+                "term_id": term_happy.id,
+                "display": term_happy.display,
+                "status": LearningStatus.IGNORE,
+                "learning_stage": None,
+                "start_pos": 62,
+                "end_pos": 67
+            }
+        ]
+
+    def test_get_chapter_with_multi_token_highlights(self, client: FlaskClient, english: Language) -> None:
+        """Test chapter highlights with multi-token terms."""
+        # Given - Create content with multi-token phrases
+        book = Book(language_id=english.id, title="Multi-token Book")
+        db.session.add(book)
+        db.session.flush()
+
+        chapter = Chapter(
+            book_id=book.id,
+            chapter_number=1,
+            content="New York is a big city. I love New York very much.",
+            word_count=12
+        )
+        db.session.add(chapter)
+
+        # Create both single and multi-token terms
+        term_new = Term(language_id=english.id, norm="new", display="New", token_count=1)
+        term_york = Term(language_id=english.id, norm="york", display="York", token_count=1)
+        term_new_york = Term(language_id=english.id, norm="new york", display="New York", token_count=2)
+        term_big_city = Term(language_id=english.id, norm="big city", display="big city", token_count=2)
+        db.session.add_all([term_new, term_york, term_new_york, term_big_city])
+        db.session.flush()
+
+        # Add progress for multi-token term and one single token
+        progress_new_york = TermProgress(term_id=term_new_york.id, status=LearningStatus.KNOWN)
+        progress_new = TermProgress(term_id=term_new.id, status=LearningStatus.LEARNING, learning_stage=1)
+        progress_big_city = TermProgress(term_id=term_big_city.id, status=LearningStatus.LEARNING, learning_stage=3)
+        db.session.add_all([progress_new_york, progress_new, progress_big_city])
+        db.session.commit()
+
+        # When
+        response = client.get(f"/api/books/{book.id}/chapters/1")
+
+        # Then
+        assert response.status_code == 200
+        data = response.get_json()
+        highlights = data["term_highlights"]
+
+        # Should prefer multi-token "New York" over individual "New" tokens
+        new_york_highlights = [h for h in highlights if h["display"] == "New York"]
+        assert len(new_york_highlights) == 2  # "New York" appears twice
+
+        big_city_highlights = [h for h in highlights if h["display"] == "big city"]
+        assert len(big_city_highlights) == 1
+
+        # Individual "new" should not appear where covered by "New York"
+        new_highlights = [h for h in highlights if h["display"] == "New"]
+        assert len(new_highlights) == 0  # Should be covered by multi-token
+
+        # Verify positions don't overlap
+        positions = [(h["start_pos"], h["end_pos"]) for h in highlights]
+        for i, (start1, end1) in enumerate(positions):
+            for j, (start2, end2) in enumerate(positions):
+                if i != j:
+                    # No overlapping ranges
+                    assert end1 <= start2 or end2 <= start1
+
+    def test_boundaries(self, client: FlaskClient, english: Language) -> None:
+        """Test chapter highlights obey token boundaries"""
+        # Given - Create content with multi-token phrases
+        book = Book(language_id=english.id, title="Multi-token Book")
+        db.session.add(book)
+        db.session.flush()
+
+        chapter = Chapter(
+            book_id=book.id,
+            chapter_number=1,
+            content="Pancakes do belong, but waffles do not.",
+            word_count=7
+        )
+        db.session.add(chapter)
+
+        # Create terms that should not be matched with the chatper, and one that can
+        term_cake = Term(language_id=english.id, norm="cake", display="cake", token_count=1)
+        term_long = Term(language_id=english.id, norm="long", display="Long", token_count=1)
+        term_belong_bob = Term(language_id=english.id, norm="belong bob", display="Belong Bob", token_count=2)
+        term_but_waffle = Term(language_id=english.id, norm="but waffle", display="but waffle", token_count=2)
+        term_not = Term(language_id=english.id, norm="not", display="Not", token_count=1)
+        db.session.add_all([term_cake, term_long, term_belong_bob, term_but_waffle, term_not])
+        db.session.flush()
+
+        # Add progress for multi-token term and one single token
+        progress_belong_bob = TermProgress(term_id=term_belong_bob.id, status=LearningStatus.KNOWN)
+        progress_cake = TermProgress(term_id=term_cake.id, status=LearningStatus.LEARNING, learning_stage=1)
+        progress_long = TermProgress(term_id=term_long.id, status=LearningStatus.LEARNING, learning_stage=3)
+        progress_but_waffle = TermProgress(term_id=term_but_waffle.id, status=LearningStatus.IGNORE)
+        progress_not = TermProgress(term_id=term_not.id, status=LearningStatus.KNOWN)
+        db.session.add_all([progress_belong_bob, progress_cake, progress_long, progress_but_waffle, progress_not])
+        db.session.commit()
+
+        # When
+        response = client.get(f"/api/books/{book.id}/chapters/1")
+
+        # Then
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["term_highlights"] == [
+            {
+                "term_id": term_not.id,
+                "display": term_not.display,
+                "status": LearningStatus.KNOWN,
+                "learning_stage": None,
+                "start_pos": 35,
+                "end_pos": 38
+            }
+        ]  # Only "not" should be highlighted
+
+    def test_get_chapter_not_found(self, client: FlaskClient, english: Language) -> None:
+        """Test retrieval of non-existent chapter."""
+        # Given - Book without the requested chapter
+        book = Book(language_id=english.id, title="Test Book")
+        db.session.add(book)
+        db.session.commit()
+
+        # When
+        response = client.get(f"/api/books/{book.id}/chapters/999")
+
+        # Then
+        assert response.status_code == 404
+        data = response.get_json()
+        assert "Chapter 999 not found" in data["msg"]
+
+    def test_get_chapter_book_not_found(self, client: FlaskClient) -> None:
+        """Test retrieval with non-existent book."""
+        # When
+        response = client.get("/api/books/999/chapters/1")
+
+        # Then
+        assert response.status_code == 404
+        data = response.get_json()
+        assert "Book 999 not found" in data["msg"]
+
+    def test_get_chapter_no_user_progress(self, client: FlaskClient, english: Language) -> None:
+        """Test chapter with no user term progress."""
+        # Given - Chapter with no user progress on any terms
+        book = Book(language_id=english.id, title="No Progress Book")
+        db.session.add(book)
+        db.session.flush()
+
+        chapter = Chapter(
+            book_id=book.id,
+            chapter_number=1,
+            content="Some random text without progress.",
+            word_count=5
+        )
+        db.session.add(chapter)
+        db.session.commit()
+
+        # When
+        response = client.get(f"/api/books/{book.id}/chapters/1")
+
+        # Then
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["chapter"]["content"] == "Some random text without progress."
+        assert data["term_highlights"] == []
+
+    @pytest.mark.parametrize("status", [LearningStatus.KNOWN, LearningStatus.LEARNING])
+    def test_get_chapter_highlights_only_relevant_statuses(
+        self, client: FlaskClient, english: Language, status: LearningStatus
+    ) -> None:
+        """Test that only known/learning terms are highlighted."""
+        # Given - Terms with different statuses
+        book = Book(language_id=english.id, title="Status Test Book")
+        db.session.add(book)
+        db.session.flush()
+
+        chapter = Chapter(
+            book_id=book.id,
+            chapter_number=1,
+            content="Test word here",
+            word_count=3
+        )
+        db.session.add(chapter)
+
+        term = Term(language_id=english.id, norm="test", display="Test", token_count=1)
+        db.session.add(term)
+        db.session.flush()
+
+        progress = TermProgress(term_id=term.id, status=status, learning_stage=1)
+        db.session.add(progress)
+        db.session.commit()
+
+        # When
+        response = client.get(f"/api/books/{book.id}/chapters/1")
+
+        # Then
+        assert response.status_code == 200
+        data = response.get_json()
+        highlights = data["term_highlights"]
+
+        if status in [LearningStatus.KNOWN, LearningStatus.LEARNING]:
+            assert len(highlights) == 1
+            assert highlights[0]["display"] == "Test"
+            assert highlights[0]["status"] == status
+        else:
+            assert len(highlights) == 0
+
+    def test_get_chapter_early_exit_no_multi_token_terms(self, client: FlaskClient, english: Language) -> None:
+        """Test early exit optimization when user has no multi-token terms."""
+        # Given - User with only single-token terms
+        book = Book(language_id=english.id, title="Single Token Book")
+        db.session.add(book)
+        db.session.flush()
+
+        chapter = Chapter(
+            book_id=book.id,
+            chapter_number=1,
+            content="Simple test with only single words here.",
+            word_count=7
+        )
+        db.session.add(chapter)
+
+        # Create only single-token terms
+        term1 = Term(language_id=english.id, norm="simple", display="Simple", token_count=1)
+        term2 = Term(language_id=english.id, norm="test", display="test", token_count=1)
+        db.session.add_all([term1, term2])
+        db.session.flush()
+
+        # Add progress for single tokens only
+        progress1 = TermProgress(term_id=term1.id, status=LearningStatus.KNOWN)
+        progress2 = TermProgress(term_id=term2.id, status=LearningStatus.LEARNING, learning_stage=1)
+        db.session.add_all([progress1, progress2])
+        db.session.commit()
+
+        # When
+        response = client.get(f"/api/books/{book.id}/chapters/1")
+
+        # Then - Should work with early exit optimization
+        assert response.status_code == 200
+        data = response.get_json()
+        highlights = data["term_highlights"]
+
+        assert len(highlights) == 2
+        highlight_displays = [h["display"] for h in highlights]
+        assert "Simple" in highlight_displays
+        assert "test" in highlight_displays
+
+    def test_get_chapter_very_long_multi_token_term(self, client: FlaskClient, english: Language) -> None:
+        """Test handling of very long multi-token terms (6+ tokens)."""
+        # Given - Content with a long phrase
+        book = Book(language_id=english.id, title="Long Phrase Book")
+        db.session.add(book)
+        db.session.flush()
+
+        chapter = Chapter(
+            book_id=book.id,
+            chapter_number=1,
+            content="The President of the United States of America spoke yesterday.",
+            word_count=10
+        )
+        db.session.add(chapter)
+
+        # Create a 7-token term that should be found with term-first approach
+        long_term = Term(
+            language_id=english.id,
+            norm="president of the united states of america",
+            display="President of the United States of America",
+            token_count=7
+        )
+        db.session.add(long_term)
+        db.session.flush()
+
+        # Add progress
+        progress = TermProgress(term_id=long_term.id, status=LearningStatus.LEARNING, learning_stage=2)
+        db.session.add(progress)
+        db.session.commit()
+
+        # When
+        response = client.get(f"/api/books/{book.id}/chapters/1")
+
+        # Then - Should find the long term with term-first approach
+        assert response.status_code == 200
+        data = response.get_json()
+        highlights = data["term_highlights"]
+
+        assert len(highlights) == 1
+        highlight = highlights[0]
+        assert highlight["display"] == "President of the United States of America"
+        assert highlight["status"] == LearningStatus.LEARNING
+
+        # Verify the positions span the entire phrase
+        content = data["chapter"]["content"]
+        highlighted_text = content[highlight["start_pos"]:highlight["end_pos"]]
+        assert "President" in highlighted_text
+        assert "America" in highlighted_text
+
