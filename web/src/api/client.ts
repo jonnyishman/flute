@@ -178,7 +178,7 @@ class ApiClient {
   async getBookSummaries(request: BookSummariesRequest): Promise<BookSummariesResponse> {
     const response = await this.request<BookSummariesResponse>('/books', {
       method: 'GET',
-      params: request as Record<string, unknown>,
+      params: request as unknown as Record<string, unknown>,
     })
     return response.data
   }

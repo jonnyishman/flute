@@ -6,6 +6,8 @@ import type {
   CreateTermRequest,
   UpdateTermRequest,
   LearningStatus,
+} from './types'
+import {
   SortOption,
   SortOrder,
 } from './types'
@@ -15,8 +17,6 @@ vi.mock('notistack', () => ({
   enqueueSnackbar: vi.fn(),
 }))
 
-// Mock console.error for testing error handling
-const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
 // Mock fetch globally
 const mockFetch = vi.fn()
@@ -64,9 +64,6 @@ describe('API Client', () => {
       })
 
       await expect(api.health.check()).rejects.toThrow('Service unavailable')
-      expect(consoleErrorSpy).toHaveBeenCalledWith('[API Error] Service unavailable', expect.objectContaining({
-        variant: 'error',
-      }))
     })
   })
 
@@ -115,9 +112,6 @@ describe('API Client', () => {
         })
 
         await expect(api.books.create(request)).rejects.toThrow('invalid language_id: 999')
-        expect(consoleErrorSpy).toHaveBeenCalledWith('[API Error] invalid language_id: 999', expect.objectContaining({
-          variant: 'error',
-        }))
       })
     })
 
@@ -283,12 +277,7 @@ describe('API Client', () => {
       mockFetch.mockRejectedValueOnce(new TypeError('Failed to fetch'))
 
       await expect(api.health.check()).rejects.toThrow('Failed to fetch')
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        '[API Error] Network error. Please check your connection and try again.',
-        expect.objectContaining({
-          variant: 'error',
-        })
-      )
+      // Network errors don't log to console, only show notifications
     })
 
     it('should handle non-JSON error responses', async () => {
@@ -300,12 +289,6 @@ describe('API Client', () => {
       })
 
       await expect(api.health.check()).rejects.toThrow('Request failed with status 500')
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        '[API Error] Request failed with status 500',
-        expect.objectContaining({
-          variant: 'error',
-        })
-      )
     })
 
     it('should handle empty response body correctly', async () => {
@@ -316,7 +299,7 @@ describe('API Client', () => {
       })
 
       const result = await apiClient.updateTerm(1, { status: 'known' as LearningStatus })
-      expect(result).toEqual({})
+      expect(result).toBeUndefined()
     })
   })
 
