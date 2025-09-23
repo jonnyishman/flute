@@ -100,7 +100,7 @@ const BooksLandingPage = ({ onBookClick }: BooksLandingPageProps) => {
 
   // Skeleton loader for initial load
   const renderSkeletons = () => (
-    <Grid container spacing={3}>
+    <Grid container spacing={{ xs: 2, sm: 3 }}>
       {Array.from({ length: 12 }, (_, i) => (
         <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }} key={`skeleton-${i}`}>
           <Box>
@@ -121,11 +121,11 @@ const BooksLandingPage = ({ onBookClick }: BooksLandingPageProps) => {
   )
 
   return (
-    <Container maxWidth="xl" sx={{ py: 4 }}>
+    <Container maxWidth="xl" sx={{ px: { xs: 2, sm: 3, md: 4 }, py: { xs: 2, sm: 4 } }}>
       {/* Header */}
       <Box mb={4}>
-        <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={2}>
-          <Typography variant="h3" component="h1" fontWeight="bold">
+        <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={2} flexDirection={{ xs: 'column', sm: 'row' }} gap={{ xs: 2, sm: 0 }}>
+          <Typography variant="h3" component="h1" fontWeight="bold" sx={{ fontSize: { xs: '1.75rem', sm: '2rem', md: '3rem' } }}>
             Your Library
           </Typography>
           <BooksSortControls sortOptions={sortOptions} onSortChange={handleSortChange} />
@@ -146,7 +146,7 @@ const BooksLandingPage = ({ onBookClick }: BooksLandingPageProps) => {
       {books.length === 0 && loading ? (
         renderSkeletons()
       ) : (
-        <Grid container spacing={3}>
+        <Grid container spacing={{ xs: 2, sm: 3 }}>
           {books.map((book) => (
             <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }} key={book.id}>
               <BookTile book={book} onClick={onBookClick} />

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAtom } from 'jotai'
 import {
@@ -107,9 +107,6 @@ const BookReader = ({ book: propBook, chapter: propChapter, onBackToLibrary }: B
     endReadingSession 
   } = useBookProgress()
   
-  // Refs for touch handling
-  const touchStartRef = useRef<{ x: number; time: number } | null>(null)
-  const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   
   const [state, setState] = useState<BookReaderState>({
     book: propBook || null,
@@ -120,6 +117,19 @@ const BookReader = ({ book: propBook, chapter: propChapter, onBackToLibrary }: B
     currentChapter: propChapter || (propBook?.lastReadChapter ?? 1),
     showTransition: false,
   })
+
+  // Prevent body scroll when reader is mounted
+  useEffect(() => {
+    const originalOverflow = document.body.style.overflow
+    const originalHeight = document.body.style.height
+    document.body.style.overflow = 'hidden'
+    document.body.style.height = '100%'
+
+    return () => {
+      document.body.style.overflow = originalOverflow
+      document.body.style.height = originalHeight
+    }
+  }, [])
 
   // Start reading session when book and chapter are loaded
   useEffect(() => {
@@ -222,40 +232,8 @@ const BookReader = ({ book: propBook, chapter: propChapter, onBackToLibrary }: B
     }
   }, [state.book, state.currentChapter, updateBookProgress])
 
-  const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    if (!isMobile) return
-    touchStartRef.current = {
-      x: e.touches[0].clientX,
-      time: Date.now()
-    }
-  }, [isMobile])
-
-  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
-    if (!isMobile || !touchStartRef.current) return
-    
-    const endX = e.changedTouches[0].clientX
-    const endTime = Date.now()
-    const deltaX = touchStartRef.current.x - endX
-    const deltaTime = endTime - touchStartRef.current.time
-    
-    // Debounce rapid swipes
-    if (debounceTimeoutRef.current) {
-      clearTimeout(debounceTimeoutRef.current)
-    }
-    
-    // Swipe threshold: 50px distance, max 500ms duration
-    if (Math.abs(deltaX) > 50 && deltaTime < 500) {
-      debounceTimeoutRef.current = setTimeout(() => {
-        if (deltaX > 0) {
-          changeChapter(1) // Swipe left - next chapter
-        } else {
-          changeChapter(-1) // Swipe right - previous chapter  
-        }
-      }, 100)
-    }
-    
-    touchStartRef.current = null
-  }, [isMobile, changeChapter])
+  // Mobile swipe handlers removed - horizontal swiping now scrolls through text content
+  // Chapter navigation on mobile is handled through the navigation buttons in the toolbar
 
   // Keyboard navigation
   useEffect(() => {
@@ -278,12 +256,12 @@ const BookReader = ({ book: propBook, chapter: propChapter, onBackToLibrary }: B
 
   if (state.loading) {
     return (
-      <Box 
-        sx={{ 
-          display: 'flex', 
-          justifyContent: 'center', 
-          alignItems: 'center', 
-          height: '100vh',
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          height: { xs: '100dvh', fallbacks: ['100vh'] },
           flexDirection: 'column',
           gap: 2
         }}
@@ -296,12 +274,12 @@ const BookReader = ({ book: propBook, chapter: propChapter, onBackToLibrary }: B
 
   if (state.error) {
     return (
-      <Box 
-        sx={{ 
-          display: 'flex', 
-          justifyContent: 'center', 
-          alignItems: 'center', 
-          height: '100vh',
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          height: { xs: '100dvh', fallbacks: ['100vh'] },
           flexDirection: 'column',
           gap: 2,
           p: 2
@@ -324,7 +302,13 @@ const BookReader = ({ book: propBook, chapter: propChapter, onBackToLibrary }: B
   const progressPercentage = Math.round((state.currentChapter / state.book.totalChapters) * 100)
 
   return (
-    <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
+    <Box sx={{
+      height: { xs: '100dvh', fallbacks: ['100vh'] },
+      display: 'flex',
+      flexDirection: 'column',
+      position: 'relative',
+      overflow: 'hidden'
+    }}>
       {/* Skip navigation for screen readers */}
       <Box
         component="a"
@@ -346,60 +330,96 @@ const BookReader = ({ book: propBook, chapter: propChapter, onBackToLibrary }: B
 
       {/* Control Panel */}
       <AppBar position="static" color="default" elevation={1}>
-        <Toolbar>
+        <Toolbar sx={{ minHeight: { xs: 56, sm: 64 }, px: { xs: 1, sm: 3 } }}>
           {/* Back Button */}
-          <IconButton 
-            edge="start" 
+          <IconButton
+            edge="start"
             onClick={handleBackToLibrary}
-            sx={{ mr: 2 }}
+            sx={{ mr: { xs: 1, sm: 2 } }}
             aria-label="Back to library"
           >
             <ArrowBack />
           </IconButton>
 
           {/* Navigation Controls */}
-          <IconButton 
+          <IconButton
             onClick={() => changeChapter(-1)}
             disabled={state.currentChapter <= 1}
             aria-label="Previous chapter"
-            sx={{ mr: 1 }}
+            sx={{ mr: { xs: 1, sm: 1 } }}
           >
             <KeyboardArrowLeft />
           </IconButton>
 
           {/* Progress Section - Middle */}
-          <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-            <Typography variant="body2" color="text.secondary">
-              Chapter {state.currentChapter} of {state.book.totalChapters}
+          <Box sx={{
+            flexGrow: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            minWidth: 0,
+            mx: { xs: 1, sm: 2 }
+          }}>
+            {/* Chapter Info - Always visible */}
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              sx={{
+                fontSize: { xs: '0.875rem', sm: '0.875rem' },
+                fontWeight: { xs: 500, sm: 400 },
+                whiteSpace: 'nowrap'
+              }}
+            >
+              {isMobile ? `${state.currentChapter}/${state.book.totalChapters}` : `Chapter ${state.currentChapter} of ${state.book.totalChapters}`}
             </Typography>
-            <Box sx={{ display: 'flex', alignItems: 'center', width: '200px', mt: 0.5 }}>
-              <Typography variant="caption" sx={{ mr: 1 }} aria-hidden="true">
+
+            {/* Progress Bar - Hidden on xs screens */}
+            <Box sx={{
+              display: { xs: 'none', sm: 'flex' },
+              alignItems: 'center',
+              width: { sm: '150px', md: '200px' },
+              mt: 0.5
+            }}>
+              <Typography
+                variant="caption"
+                sx={{ mr: 1 }}
+                aria-hidden="true"
+              >
                 {progressPercentage}%
               </Typography>
               <LinearProgress
                 variant="determinate"
                 value={progressPercentage}
-                sx={{ flexGrow: 1, mr: 1, height: 4, borderRadius: 2 }}
+                sx={{
+                  flexGrow: 1,
+                  mr: 1,
+                  height: 4,
+                  borderRadius: 2
+                }}
                 aria-label={`Reading progress: ${progressPercentage}% complete`}
               />
-              <Typography variant="caption" aria-hidden="true">
+              <Typography
+                variant="caption"
+                aria-hidden="true"
+              >
                 100%
               </Typography>
             </Box>
           </Box>
 
-          <IconButton 
+          <IconButton
             onClick={() => changeChapter(1)}
             disabled={state.currentChapter >= state.book.totalChapters}
             aria-label="Next chapter"
-            sx={{ mr: 2 }}
+            sx={{ mr: { xs: 1, sm: 2 } }}
           >
             <KeyboardArrowRight />
           </IconButton>
 
           {/* Settings Button */}
-          <IconButton 
-            edge="end" 
+          <IconButton
+            edge="end"
             onClick={() => setState(prev => ({ ...prev, settingsOpen: true }))}
             aria-label="Open reading settings"
           >
@@ -416,7 +436,8 @@ const BookReader = ({ book: propBook, chapter: propChapter, onBackToLibrary }: B
         tabIndex={-1}
         sx={{
           flexGrow: 1,
-          overflow: isMobile ? 'hidden' : 'auto',
+          overflow: 'auto',
+          overflowX: 'hidden',
           p: { xs: 2, md: 4 },
           maxWidth: '800px',
           margin: '0 auto',
@@ -424,12 +445,14 @@ const BookReader = ({ book: propBook, chapter: propChapter, onBackToLibrary }: B
           fontSize: `${readerSettings.fontSize}px`,
           lineHeight: readerSettings.lineSpacing,
           fontFamily: 'Georgia, serif',
+          minHeight: 0,
+          position: 'relative',
+          WebkitOverflowScrolling: 'touch',
+          scrollBehavior: 'smooth',
           ...(isMobile && {
             touchAction: 'pan-y',
           })
         }}
-        onTouchStart={handleTouchStart}
-        onTouchEnd={handleTouchEnd}
         aria-live="polite"
         aria-label={`Reading ${state.book.title}, Chapter ${state.currentChapter}`}
       >
@@ -482,7 +505,7 @@ const BookReader = ({ book: propBook, chapter: propChapter, onBackToLibrary }: B
             {isMobile && (
               <Box sx={{ textAlign: 'center', mt: 4, color: 'text.secondary' }}>
                 <Typography variant="caption">
-                  Swipe left for next chapter, right for previous • Use arrow keys for keyboard navigation
+                  Use chapter navigation buttons in the toolbar • Scroll horizontally through text
                 </Typography>
               </Box>
             )}

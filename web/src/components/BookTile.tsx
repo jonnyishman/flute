@@ -93,15 +93,16 @@ const BookTile = ({ book, onClick }: BookTileProps) => {
     >
       <CardMedia
         component="img"
-        height="200"
         image={book.coverArt}
         alt={book.title}
         sx={{
           objectFit: 'cover',
+          width: '100%',
+          height: { xs: 180, sm: 200 },
         }}
       />
       
-      <CardContent sx={{ flexGrow: 1, pb: 2 }}>
+      <CardContent sx={{ flexGrow: 1, pb: 2, px: { xs: 2, sm: 2 }, py: { xs: 1.5, sm: 2 } }}>
         <Typography
           variant="h6"
           component="h2"
@@ -153,24 +154,27 @@ const BookTile = ({ book, onClick }: BookTileProps) => {
         </Box>
 
         {/* Learning Stats */}
-        <Stack direction="row" spacing={1} mb={2} flexWrap="wrap" gap={0.5}>
+        <Stack direction="row" spacing={{ xs: 0.5, sm: 1 }} mb={2} flexWrap="wrap" gap={{ xs: 0.5, sm: 0.5 }} sx={{ '& > *': { minWidth: 0 } }}>
           <Chip
             label={`${formatNumber(book.knownWords)} known`}
             size="small"
             color="success"
             variant="outlined"
+            sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' } }}
           />
           <Chip
             label={`${formatNumber(book.learningWords)} learning`}
             size="small"
             color="warning"
             variant="outlined"
+            sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' } }}
           />
           <Chip
             label={`${formatNumber(book.unknownWords)} unknown`}
             size="small"
             color="error"
             variant="outlined"
+            sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' } }}
           />
         </Stack>
 
@@ -189,15 +193,18 @@ const BookTile = ({ book, onClick }: BookTileProps) => {
         onClick={handleMenuOpen}
         sx={{
           position: 'absolute',
-          bottom: 8,
-          right: 8,
+          bottom: { xs: 6, sm: 8 },
+          right: { xs: 6, sm: 8 },
           backgroundColor: 'rgba(255, 255, 255, 0.9)',
           backdropFilter: 'blur(4px)',
           '&:hover': {
             backgroundColor: 'rgba(255, 255, 255, 1)',
           },
-          minWidth: 44,
-          minHeight: 44,
+          minWidth: { xs: 40, sm: 44 },
+          minHeight: { xs: 40, sm: 44 },
+          '& .MuiSvgIcon-root': {
+            fontSize: { xs: '1.2rem', sm: '1.5rem' },
+          },
         }}
       >
         <MoreVert />
