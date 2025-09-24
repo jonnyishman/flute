@@ -11,7 +11,7 @@ import {
 import { useAtom } from 'jotai'
 import { Book } from '../types/book'
 import { SortOptions } from '../types/sorting'
-import { fetchBooks } from '../data/mockBooks'
+import { fetchBooks } from '../data/booksService'
 import { bookSortOptionsAtom } from '../store/atoms'
 import BookTile from './BookTile'
 import BooksSortControls from './BooksSortControls'

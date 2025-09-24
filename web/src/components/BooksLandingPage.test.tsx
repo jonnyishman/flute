@@ -6,8 +6,17 @@ import { Provider } from 'jotai'
 import BooksLandingPage from './BooksLandingPage'
 import theme from '../theme'
 
+// Mock the API client
+vi.mock('../api', () => ({
+  api: {
+    books: {
+      getSummaries: vi.fn()
+    }
+  }
+}))
+
 // Mock the fetchBooks function
-vi.mock('../data/mockBooks', () => ({
+vi.mock('../data/booksService', () => ({
   fetchBooks: vi.fn(() => Promise.resolve({
     books: [
       {
