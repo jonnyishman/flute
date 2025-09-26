@@ -279,6 +279,16 @@ class ChapterWithHighlightsResponse(BaseModel):
     term_highlights: list[TermHighlight]
 
 
+class BookCountRequest(BaseModel):
+    """Request model for getting book count by language."""
+    language_id: int
+
+
+class BookCountResponse(BaseModel):
+    """Response model for book count."""
+    count: int
+
+
 class TermInfo(NamedTuple):
     term_id: int
     norm: str
@@ -463,3 +473,20 @@ def _find_term_highlights(
     # Sort by position for frontend consumption
     highlights.sort(key=lambda h: h.start_pos)
     return highlights
+
+
+@api_bp.route("/books/count", methods=["GET"])
+@validate()
+def get_book_count(query: BookCountRequest) -> BookCountResponse:
+    """
+    Get the total number of unarchived books for a given language ID.
+    """
+    stmt = (
+        sa.select(sa.func.count(Book.id))
+        .where(
+            Book.language_id == query.language_id,
+            Book.is_archived.is_(False)
+        )
+    )
+    count = db.session.execute(stmt).scalar()
+    return BookCountResponse(count=count)
