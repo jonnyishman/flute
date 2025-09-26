@@ -10,6 +10,7 @@ from src.models.books import (
     Term,
     TermProgress,
 )
+from src.models.images import Image
 from src.models.language import Language, LanguageDictionary
 
-__all__ = ["db", "Book", "Chapter", "Term", "BookVocab", "BookTotals", "LearningStatus", "TermProgress", "Language", "LanguageDictionary"]
+__all__ = ["db", "Book", "Chapter", "Term", "BookVocab", "BookTotals", "LearningStatus", "TermProgress", "Language", "LanguageDictionary", "Image"]

@@ -1,4 +1,4 @@
 """API routes package."""
-from src.api import books, terms
+from src.api import books, images, terms
 
-__all__ = ["books", "terms"]
+__all__ = ["books", "images", "terms"]

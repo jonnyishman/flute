@@ -39,6 +39,9 @@ class AppConfig(BaseSettings):
     SQLALCHEMY_TRACK_MODIFICATIONS: bool = False
     FLASK_PYDANTIC_VALIDATION_ERROR_STATUS_CODE: int = 422
 
+    # Image storage configuration - defaults to ./images directory
+    IMAGE_STORAGE_PATH: str = "images"
+
     # Worked out from above
     @computed_field
     @property
