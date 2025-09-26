@@ -1654,3 +1654,164 @@ class TestGetChapterWithHighlights:
         assert "President" in highlighted_text
         assert "America" in highlighted_text
 
+
+class TestGetBookCountEndpoint:
+    """Test cases for GET /api/books/count endpoint."""
+
+    def test_get_book_count_success(self, client: FlaskClient, english: Language) -> None:
+        """Test successful book count retrieval for a language with books."""
+        # Given - Create some unarchived books
+        books = [
+            Book(title="Book 1", language_id=english.id, is_archived=False),
+            Book(title="Book 2", language_id=english.id, is_archived=False),
+            Book(title="Book 3", language_id=english.id, is_archived=False),
+        ]
+        for book in books:
+            db.session.add(book)
+        db.session.commit()
+
+        # When
+        response = client.get(f"/api/books/count?language_id={english.id}")
+
+        # Then
+        assert response.status_code == 200
+        data = response.get_json()
+        assert "count" in data
+        assert data["count"] == 3
+
+    def test_get_book_count_excludes_archived(self, client: FlaskClient, spanish: Language) -> None:
+        """Test that archived books are excluded from count."""
+        # Given - Create mix of archived and unarchived books
+        books = [
+            Book(title="Active Book 1", language_id=spanish.id, is_archived=False),
+            Book(title="Active Book 2", language_id=spanish.id, is_archived=False),
+            Book(title="Archived Book 1", language_id=spanish.id, is_archived=True),
+            Book(title="Archived Book 2", language_id=spanish.id, is_archived=True),
+        ]
+        for book in books:
+            db.session.add(book)
+        db.session.commit()
+
+        # When
+        response = client.get(f"/api/books/count?language_id={spanish.id}")
+
+        # Then
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["count"] == 2  # Only unarchived books
+
+    def test_get_book_count_language_filtering(self, client: FlaskClient, english: Language, spanish: Language) -> None:
+        """Test that books are correctly filtered by language."""
+        # Given - Create books for different languages
+        english_books = [
+            Book(title="English Book 1", language_id=english.id, is_archived=False),
+            Book(title="English Book 2", language_id=english.id, is_archived=False),
+        ]
+        spanish_books = [
+            Book(title="Spanish Book 1", language_id=spanish.id, is_archived=False),
+            Book(title="Spanish Book 2", language_id=spanish.id, is_archived=False),
+            Book(title="Spanish Book 3", language_id=spanish.id, is_archived=False),
+        ]
+        for book in english_books + spanish_books:
+            db.session.add(book)
+        db.session.commit()
+
+        # When - Check English books
+        response = client.get(f"/api/books/count?language_id={english.id}")
+
+        # Then
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["count"] == 2
+
+        # When - Check Spanish books
+        response = client.get(f"/api/books/count?language_id={spanish.id}")
+
+        # Then
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["count"] == 3
+
+    def test_get_book_count_no_books(self, client: FlaskClient, german: Language) -> None:
+        """Test book count when no books exist for the language."""
+        # Given - No books for German language
+
+        # When
+        response = client.get(f"/api/books/count?language_id={german.id}")
+
+        # Then
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["count"] == 0
+
+    def test_get_book_count_missing_language_id(self, client: FlaskClient) -> None:
+        """Test validation error when language_id is missing."""
+        # When
+        response = client.get("/api/books/count")
+
+        # Then
+        assert response.status_code == 422  # Validation error
+
+    def test_get_book_count_invalid_language_id_type(self, client: FlaskClient) -> None:
+        """Test validation error for invalid language_id type."""
+        # When
+        response = client.get("/api/books/count?language_id=invalid")
+
+        # Then
+        assert response.status_code == 422  # Validation error
+
+    def test_get_book_count_nonexistent_language_id(self, client: FlaskClient) -> None:
+        """Test response for non-existent language_id."""
+        # When
+        response = client.get("/api/books/count?language_id=99999")
+
+        # Then
+        assert response.status_code == 200  # Should return 0, not error
+        data = response.get_json()
+        assert data["count"] == 0
+
+    def test_get_book_count_response_structure(self, client: FlaskClient, english: Language) -> None:
+        """Test that response has correct structure."""
+        # Given
+        book = Book(title="Test Book", language_id=english.id, is_archived=False)
+        db.session.add(book)
+        db.session.commit()
+
+        # When
+        response = client.get(f"/api/books/count?language_id={english.id}")
+
+        # Then
+        assert response.status_code == 200
+        assert response.content_type == "application/json"
+
+        data = response.get_json()
+        assert isinstance(data, dict)
+        assert "count" in data
+        assert isinstance(data["count"], int)
+        assert data["count"] >= 0
+
+    def test_get_book_count_large_number(self, client: FlaskClient, english: Language) -> None:
+        """Test book count with a larger number of books."""
+        # Given - Create many books
+        books = [
+            Book(title=f"Book {i}", language_id=english.id, is_archived=False)
+            for i in range(50)
+        ]
+        # Add some archived books that shouldn't be counted
+        archived_books = [
+            Book(title=f"Archived Book {i}", language_id=english.id, is_archived=True)
+            for i in range(10)
+        ]
+
+        for book in books + archived_books:
+            db.session.add(book)
+        db.session.commit()
+
+        # When
+        response = client.get(f"/api/books/count?language_id={english.id}")
+
+        # Then
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["count"] == 50  # Only unarchived books
+
