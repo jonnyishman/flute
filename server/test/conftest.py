@@ -18,9 +18,13 @@ if TYPE_CHECKING:
 
 @pytest.fixture(scope="session")
 def config() -> AppConfig:
+    import tempfile
+    from pathlib import Path
+
     return AppConfig(
         SQLITE_PATH=":memory:",
         SECRET_KEY="test_secret",
+        IMAGE_STORAGE_PATH=str(Path(tempfile.mkdtemp()) / "images"),
     )
 
 

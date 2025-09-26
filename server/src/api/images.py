@@ -1,36 +1,22 @@
 """API routes for image storage and retrieval operations."""
-import contextlib
 import uuid
 from pathlib import Path
 
 from flask import current_app, request, send_file
-from flask_pydantic import validate
 from pydantic import BaseModel
 from werkzeug.datastructures import FileStorage
 from werkzeug.exceptions import BadRequest, NotFound, UnsupportedMediaType
 
 from src.api.routes import api_bp
-from src.models import Image, db
 
 
 class ImageUploadResponse(BaseModel):
     """Response model for image upload."""
 
-    image_id: str
+    file_path: str
     original_filename: str
     content_type: str
     file_size: int
-
-
-class ImageMetadataResponse(BaseModel):
-    """Response model for image metadata."""
-
-    image_id: str
-    original_filename: str
-    content_type: str
-    file_size: int
-    created_at: str
-    updated_at: str
 
 
 # Allowed image file types for security
@@ -88,7 +74,7 @@ def _get_storage_path() -> Path:
     return storage_path
 
 
-def _save_image_file(file: FileStorage, image_id: str) -> Path:
+def _save_image_file(file: FileStorage, image_id: str) -> tuple[Path, str]:
     """Save uploaded file to storage directory with UUID filename."""
     storage_path = _get_storage_path()
 
@@ -100,7 +86,8 @@ def _save_image_file(file: FileStorage, image_id: str) -> Path:
     # Save the file
     file.save(str(file_path))
 
-    return file_path
+    # Return both absolute path and relative path (just the filename for the API)
+    return file_path, filename
 
 
 @api_bp.route("/images", methods=["POST"])
@@ -109,7 +96,7 @@ def upload_image() -> tuple[ImageUploadResponse, int]:
     Upload an image file for storage.
 
     Accepts multipart form data with an 'image' file field.
-    Returns metadata about the stored image including a unique image_id for retrieval.
+    Returns the relative file path where the image was stored.
     """
     # Get uploaded file from form data
     if "image" not in request.files:
@@ -125,33 +112,15 @@ def upload_image() -> tuple[ImageUploadResponse, int]:
 
     # Save file to storage
     try:
-        file_path = _save_image_file(file, image_id)
+        file_path, relative_path = _save_image_file(file, image_id)
     except Exception as exc:
         raise BadRequest(f"Failed to save image file: {exc}") from exc
 
     # Get actual file size after saving
     file_size = file_path.stat().st_size
 
-    # Create database record
-    image = Image(
-        id=image_id,
-        original_filename=file.filename,
-        content_type=file.content_type,
-        file_size=file_size,
-        file_path=str(file_path)
-    )
-
-    try:
-        db.session.add(image)
-        db.session.commit()
-    except Exception as exc:
-        # Clean up file if database save fails
-        with contextlib.suppress(FileNotFoundError):
-            file_path.unlink()
-        raise BadRequest(f"Failed to save image metadata: {exc}") from exc
-
     response = ImageUploadResponse(
-        image_id=image_id,
+        file_path=relative_path,
         original_filename=file.filename,
         content_type=file.content_type,
         file_size=file_size
@@ -159,82 +128,90 @@ def upload_image() -> tuple[ImageUploadResponse, int]:
     return response.model_dump(), 201
 
 
-@api_bp.route("/images/<string:image_id>", methods=["GET"])
-def get_image(image_id: str):
+@api_bp.route("/images/<path:relative_path>", methods=["GET"])
+def get_image(relative_path: str):
     """
-    Retrieve an image file by its ID.
+    Retrieve an image file by its relative path.
 
     Returns the raw image file with appropriate content type headers.
     """
-    # Get image metadata from database
-    image = db.session.get(Image, image_id)
-    if not image:
-        raise NotFound(f"Image with ID '{image_id}' not found")
+    storage_path = _get_storage_path()
+
+    # Remove the storage path prefix if it exists in the relative path
+    storage_dir_name = Path(current_app.config["IMAGE_STORAGE_PATH"]).name
+    if relative_path.startswith(storage_dir_name + "/"):
+        relative_path = relative_path[len(storage_dir_name) + 1:]
+
+    # Construct full file path
+    file_path = storage_path / relative_path
+
+    # Security: ensure the path is within storage directory
+    try:
+        file_path = file_path.resolve()
+        storage_path = storage_path.resolve()
+        file_path.relative_to(storage_path)
+    except ValueError:
+        raise NotFound("Invalid file path") from None
 
     # Check if file exists on disk
-    file_path = Path(image.file_path)
     if not file_path.exists():
-        raise NotFound(f"Image file not found on disk: {file_path}")
+        raise NotFound(f"Image file not found: {relative_path}")
+
+    # Determine MIME type from file extension
+    file_ext = file_path.suffix.lower()
+    mime_type_map = {
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".png": "image/png",
+        ".gif": "image/gif",
+        ".webp": "image/webp",
+        ".bmp": "image/bmp",
+        ".svg": "image/svg+xml"
+    }
+
+    mime_type = mime_type_map.get(file_ext, "application/octet-stream")
 
     # Return the file with proper content type
     return send_file(
         str(file_path),
-        mimetype=image.content_type,
-        as_attachment=False,
-        download_name=image.original_filename
+        mimetype=mime_type,
+        as_attachment=False
     )
 
 
-@api_bp.route("/images/<string:image_id>/metadata", methods=["GET"])
-@validate()
-def get_image_metadata(image_id: str) -> ImageMetadataResponse:
+@api_bp.route("/images/<path:relative_path>", methods=["DELETE"])
+def delete_image(relative_path: str) -> tuple[dict[str, str], int]:
     """
-    Get metadata for an image without downloading the file.
+    Delete an image file by its relative path.
 
-    Returns information about the image including size, type, and timestamps.
+    Removes the file from storage.
     """
-    # Get image metadata from database
-    image = db.session.get(Image, image_id)
-    if not image:
-        raise NotFound(f"Image with ID '{image_id}' not found")
+    storage_path = _get_storage_path()
 
-    response = ImageMetadataResponse(
-        image_id=image.id,
-        original_filename=image.original_filename,
-        content_type=image.content_type,
-        file_size=image.file_size,
-        created_at=image.created_at.isoformat(),
-        updated_at=image.updated_at.isoformat()
-    )
-    return response.model_dump()
+    # Remove the storage path prefix if it exists in the relative path
+    storage_dir_name = Path(current_app.config["IMAGE_STORAGE_PATH"]).name
+    if relative_path.startswith(storage_dir_name + "/"):
+        relative_path = relative_path[len(storage_dir_name) + 1:]
 
+    # Construct full file path
+    file_path = storage_path / relative_path
 
-@api_bp.route("/images/<string:image_id>", methods=["DELETE"])
-def delete_image(image_id: str) -> tuple[dict[str, str], int]:
-    """
-    Delete an image and its associated file.
-
-    Removes both the database record and the file from storage.
-    """
-    # Get image metadata from database
-    image = db.session.get(Image, image_id)
-    if not image:
-        raise NotFound(f"Image with ID '{image_id}' not found")
-
-    # Delete file from storage if it exists
-    file_path = Path(image.file_path)
+    # Security: ensure the path is within storage directory
     try:
-        if file_path.exists():
-            file_path.unlink()
-    except Exception as exc:
-        # Log warning but continue with database deletion
-        current_app.logger.warning(f"Failed to delete image file {file_path}: {exc}")
+        file_path = file_path.resolve()
+        storage_path = storage_path.resolve()
+        file_path.relative_to(storage_path)
+    except ValueError:
+        raise NotFound("Invalid file path") from None
 
-    # Delete database record
+    # Check if file exists
+    if not file_path.exists():
+        raise NotFound(f"Image file not found: {relative_path}")
+
+    # Delete file from storage
     try:
-        db.session.delete(image)
-        db.session.commit()
+        file_path.unlink()
     except Exception as exc:
-        raise BadRequest(f"Failed to delete image metadata: {exc}") from exc
+        raise BadRequest(f"Failed to delete image file: {exc}") from exc
 
-    return {"message": f"Image '{image_id}' deleted successfully"}, 200
+    return {"message": f"Image '{relative_path}' deleted successfully"}, 200
