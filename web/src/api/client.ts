@@ -1,6 +1,8 @@
 import { enqueueSnackbar } from 'notistack'
 import type {
   ApiError,
+  BookCountRequest,
+  BookCountResponse,
   BookSummariesRequest,
   BookSummariesResponse,
   CreateBookRequest,
@@ -183,6 +185,14 @@ class ApiClient {
     return response.data
   }
 
+  async getBookCount(request: BookCountRequest): Promise<BookCountResponse> {
+    const response = await this.request<BookCountResponse>('/books/count', {
+      method: 'GET',
+      params: request as unknown as Record<string, unknown>,
+    })
+    return response.data
+  }
+
   // Terms API
   async createTerm(request: CreateTermRequest): Promise<TermIdResponse> {
     const response = await this.request<TermIdResponse>('/terms', {
@@ -213,6 +223,7 @@ export const api = {
   books: {
     create: (request: CreateBookRequest) => apiClient.createBook(request),
     getSummaries: (request: BookSummariesRequest) => apiClient.getBookSummaries(request),
+    getCount: (request: BookCountRequest) => apiClient.getBookCount(request),
   },
   terms: {
     create: (request: CreateTermRequest) => apiClient.createTerm(request),

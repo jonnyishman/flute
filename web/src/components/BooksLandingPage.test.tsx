@@ -10,7 +10,8 @@ import theme from '../theme'
 vi.mock('../api', () => ({
   api: {
     books: {
-      getSummaries: vi.fn()
+      getSummaries: vi.fn(),
+      getCount: vi.fn(() => Promise.resolve({ count: 1 }))
     }
   }
 }))

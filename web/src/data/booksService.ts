@@ -47,10 +47,6 @@ function mapSortOptions(sortOptions: SortOptions): { sortOption: SortOption | nu
     case 'unknownWords':
       backendSortOption = SortOption.UNKNOWN_TERMS
       break
-    case 'wordCount':
-      // wordCount doesn't have a direct backend mapping, fall back to title
-      backendSortOption = SortOption.TITLE
-      break
     default:
       backendSortOption = null
   }
@@ -81,14 +77,14 @@ export async function fetchBooks(
 
   const transformedBooks = response.summaries.map(transformBookSummary)
 
-  // Backend doesn't provide hasMore or totalCount in current response
-  // For now, we'll assume there might be more if we got a full page
+  // Backend doesn't provide hasMore or totalCount - these should be calculated by caller
+  // using the separate book count endpoint
   const hasMore = response.summaries.length === pageSize
 
   return {
     books: transformedBooks,
     hasMore,
     nextPage: hasMore ? page + 1 : null,
-    totalCount: transformedBooks.length, // Backend doesn't provide total count yet
+    totalCount: 0, // No longer calculated here - use separate book count endpoint
   }
 }
