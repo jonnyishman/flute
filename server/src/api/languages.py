@@ -1,7 +1,7 @@
 """API routes for language-related operations"""
 
 import sqlalchemy as sa
-from flask import abort, request
+from flask import abort
 from flask_pydantic import validate
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -68,6 +68,12 @@ class LanguageCreateResponse(BaseModel):
     language_id: int
 
 
+class LanguageSummariesRequest(BaseModel):
+    """Request model for language summaries."""
+
+    with_books: bool = False
+
+
 class LanguageSummariesResponse(BaseModel):
     """Response model for language summaries."""
 
@@ -76,27 +82,21 @@ class LanguageSummariesResponse(BaseModel):
 
 @api_bp.route("/languages", methods=["GET"])
 @validate()
-def get_language_summaries() -> LanguageSummariesResponse:
+def get_language_summaries(query: LanguageSummariesRequest) -> LanguageSummariesResponse:
     """
     Retrieve summary of all languages.
 
     Returns basic language information (ID, name, and flag image filepath).
     Query parameter 'with_books=true' filters to languages with at least one book.
     """
-    with_books = request.args.get("with_books", "false").lower() == "true"
+    stmt = sa.select(Language.id, Language.name, Language.flag_image_filepath)
 
-    if with_books:
-        stmt = (
-            sa.select(Language.id, Language.name, Language.flag_image_filepath)
-            .join(Book, Book.language_id == Language.id)
-            .distinct()
-            .order_by(Language.name)
+    if query.with_books:
+        stmt = stmt.where(
+            sa.exists().where(Book.language_id == Language.id)
         )
-    else:
-        stmt = sa.select(
-            Language.id, Language.name, Language.flag_image_filepath
-        ).order_by(Language.name)
 
+    stmt = stmt.order_by(Language.name)
     rows = db.session.execute(stmt).all()
     return LanguageSummariesResponse(
         languages=[LanguageSummary.model_validate(row) for row in rows]
