@@ -50,6 +50,6 @@ jobs:
           # or https://docs.anthropic.com/en/docs/claude-code/sdk#command-line for available options
 
           # Allow Claude to run mandatory linting/testing commands
-          claude_args: '--model sonnet --allowed-tools Bash(./server/venv/bin/ruff:*) Bash(./server/venv/bin/pytest:*) Bash(npm:*)'
+          claude_args: '--model sonnet --allowed-tools Bash(./server/venv/bin/ruff:*) Bash(./server/venv/bin/pytest:*) Bash(npm:*) Bash(gh issue view:*) Bash(gh search:*) Bash(gh issue list:*) Bash(gh pr comment:*) Bash(gh pr diff:*) Bash(gh pr view:*) Bash(gh pr list:*)'
           # claude_args: '--model claude-opus-4-1-20250805 --allowed-tools Bash(gh pr:*) Bash(gh issue view:*) Bash(gh search:*) Bash(gh issue list:*) Bash(gh pr comment:*) Bash(gh pr diff:*) Bash(gh pr view:*) Bash(gh pr list:*)'
 
