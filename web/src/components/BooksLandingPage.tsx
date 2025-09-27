@@ -12,9 +12,13 @@ import { useAtom } from 'jotai'
 import { Book } from '../types/book'
 import { SortOptions } from '../types/sorting'
 import { fetchBooks } from '../data/booksService'
+import { api } from '../api'
 import { bookSortOptionsAtom } from '../store/atoms'
 import BookTile from './BookTile'
 import BooksSortControls from './BooksSortControls'
+
+// Default language ID - in a real app this would come from user settings
+const DEFAULT_LANGUAGE_ID = 1
 
 interface BooksLandingPageProps {
   onBookClick?: (book: Book) => void
@@ -29,24 +33,46 @@ const BooksLandingPage = ({ onBookClick }: BooksLandingPageProps) => {
   const [totalCount, setTotalCount] = useState(0)
   const [sortOptions, setSortOptions] = useAtom(bookSortOptionsAtom)
 
+  // Function to fetch total book count
+  const fetchTotalBookCount = useCallback(async () => {
+    try {
+      const response = await api.books.getCount({ language_id: DEFAULT_LANGUAGE_ID })
+      return response.count
+    } catch (err) {
+      console.error('Error fetching book count:', err)
+      return 0
+    }
+  }, [])
+
   // Function to load more books
   const loadBooks = useCallback(async (page: number, reset: boolean = false) => {
     if (loading) return
-    
+
     setLoading(true)
     setError(null)
 
     try {
       const response = await fetchBooks(page, 12, sortOptions)
-      
+
       if (reset) {
         setBooks(response.books)
+        // Calculate hasMore for reset case
+        const calculatedHasMore = totalCount === 0
+          ? response.books.length > 0
+          : response.books.length < totalCount
+        setHasMore(calculatedHasMore)
       } else {
-        setBooks(prev => [...prev, ...response.books])
+        setBooks(prevBooks => {
+          const newBooks = [...prevBooks, ...response.books]
+          // Calculate hasMore for append case
+          const calculatedHasMore = totalCount === 0
+            ? response.books.length > 0
+            : newBooks.length < totalCount
+          setHasMore(calculatedHasMore)
+          return newBooks
+        })
       }
-      
-      setHasMore(response.hasMore)
-      setTotalCount(response.totalCount)
+
       setCurrentPage(page)
     } catch (err) {
       setError('Failed to load books. Please try again.')
@@ -54,7 +80,14 @@ const BooksLandingPage = ({ onBookClick }: BooksLandingPageProps) => {
     } finally {
       setLoading(false)
     }
-  }, [loading, sortOptions])
+  }, [loading, sortOptions, totalCount])
+
+  // Fetch total book count once on mount
+  useEffect(() => {
+    fetchTotalBookCount().then(count => {
+      setTotalCount(count)
+    })
+  }, [fetchTotalBookCount])
 
   // Initial load
   useEffect(() => {

@@ -57,6 +57,14 @@ export interface BookSummariesResponse {
   summaries: BookSummary[]
 }
 
+export interface BookCountRequest {
+  language_id: number
+}
+
+export interface BookCountResponse {
+  count: number
+}
+
 // Term types
 export interface UpdateTermRequest {
   status: LearningStatus

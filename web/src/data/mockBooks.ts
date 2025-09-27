@@ -59,9 +59,6 @@ const sortBooks = (books: Book[], sortOptions: SortOptions): Book[] => {
       case 'alphabetical':
         comparison = a.title.localeCompare(b.title)
         break
-      case 'wordCount':
-        comparison = a.wordCount - b.wordCount
-        break
       case 'unknownWords':
         comparison = a.unknownWords - b.unknownWords
         break
