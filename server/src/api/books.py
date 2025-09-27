@@ -1,4 +1,5 @@
 """API routes for book-related operations"""
+import datetime as dt
 import enum
 from typing import TYPE_CHECKING, NamedTuple, cast
 
@@ -178,6 +179,9 @@ class BookSummary(BaseModel):
     known_terms: int
     learning_terms: int
     unknown_terms: int
+    last_visited_chapter: int | None
+    last_visited_word_index: int | None
+    last_read: dt.datetime | None
 
 
 class BookSummariesResponse(BaseModel):
@@ -239,6 +243,9 @@ def get_book_summaries(query: BookSummariesRequest) -> BookSummariesResponse:
             known_terms.label("known_terms"),
             learning_terms.label("learning_terms"),
             unknown_terms.label("unknown_terms"),
+            Book.last_visited_chapter.label("last_visited_chapter"),
+            Book.last_visited_word_index.label("last_visited_word_index"),
+            Book.last_read.label("last_read"),
         )
         .select_from(
             sa.outerjoin(Book, BookTotals, BookTotals.book_id == Book.id)

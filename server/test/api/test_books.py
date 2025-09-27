@@ -1041,7 +1041,8 @@ class TestGetBookSummariesEndpoint:
             assert isinstance(summary, dict)
             required_fields = [
                 "book_id", "title", "cover_art_filepath",
-                "total_terms", "known_terms", "learning_terms", "unknown_terms"
+                "total_terms", "known_terms", "learning_terms", "unknown_terms",
+                "last_visited_chapter", "last_visited_word_index", "last_read"
             ]
             for field in required_fields:
                 assert field in summary
@@ -1053,6 +1054,10 @@ class TestGetBookSummariesEndpoint:
             assert isinstance(summary["known_terms"], int)
             assert isinstance(summary["learning_terms"], int)
             assert isinstance(summary["unknown_terms"], int)
+            # New fields can be None or their respective types
+            assert summary["last_visited_chapter"] is None or isinstance(summary["last_visited_chapter"], int)
+            assert summary["last_visited_word_index"] is None or isinstance(summary["last_visited_word_index"], int)
+            assert summary["last_read"] is None or isinstance(summary["last_read"], str)
 
     def test_get_book_summaries_term_count_consistency(self, client: FlaskClient, books_with_progress: dict[str, int]) -> None:
         """Test that term counts are mathematically consistent."""
@@ -1085,6 +1090,41 @@ class TestGetBookSummariesEndpoint:
                     f"unknown({summary['unknown_terms']}) = {calculated_total}, "
                     f"but total_terms = {summary['total_terms']}"
                 )
+
+    def test_get_book_summaries_new_fields_populated(self, client: FlaskClient, books_with_progress: dict[str, int]) -> None:
+        """Test that the new fields (last_visited_chapter, last_visited_word_index, last_read) are included."""
+        # Given
+        english_id = books_with_progress["english_id"]
+
+        # When
+        response = client.get(f"/api/books?language_id={english_id}&sort_option=last_read&sort_order=desc")
+
+        # Then
+        assert response.status_code == 200
+        data = response.get_json()
+        summaries = data["summaries"]
+
+        # Verify books are sorted by last_read DESC and new fields are present
+        assert len(summaries) == 3
+        titles = [s["title"] for s in summaries]
+        assert titles == ["Beta Book", "Alpha Book", "Gamma Book"]
+
+        # Verify last_read dates match fixture data (formatted as ISO strings)
+        beta_book = summaries[0]
+        alpha_book = summaries[1]
+        gamma_book = summaries[2]
+
+        assert beta_book["last_read"] == "2024-02-10T00:00:00"
+        assert alpha_book["last_read"] == "2024-01-15T00:00:00"
+        assert gamma_book["last_read"] == "2024-01-05T00:00:00"
+
+        # Verify other new fields are present (should be None in fixture)
+        for summary in summaries:
+            assert "last_visited_chapter" in summary
+            assert "last_visited_word_index" in summary
+            # These should be None since not set in fixture
+            assert summary["last_visited_chapter"] is None
+            assert summary["last_visited_word_index"] is None
 
 
 class TestGetBookSummariesIgnoredTerms:
