@@ -79,11 +79,10 @@ export async function fetchBooks(
 
   // Backend doesn't provide hasMore or totalCount - these should be calculated by caller
   // using the separate book count endpoint
-  const hasMore = response.summaries.length === pageSize
+  const hasNextPage = response.summaries.length === pageSize
 
   return {
     books: transformedBooks,
-    hasMore,
-    nextPage: hasMore ? page + 1 : null,
+    nextPage: hasNextPage ? page + 1 : null,
   }
 }

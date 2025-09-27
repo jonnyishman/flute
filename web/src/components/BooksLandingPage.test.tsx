@@ -34,9 +34,7 @@ vi.mock('../data/booksService', () => ({
         totalChapters: 20,
       }
     ],
-    hasMore: false,
     nextPage: null,
-    totalCount: 1
   }))
 }))
 

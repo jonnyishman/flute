@@ -14,6 +14,5 @@ export interface Book {
 
 export interface BooksPaginationResponse {
   books: Book[]
-  hasMore: boolean
   nextPage: number | null
 }

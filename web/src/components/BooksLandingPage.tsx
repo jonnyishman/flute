@@ -56,12 +56,23 @@ const BooksLandingPage = ({ onBookClick }: BooksLandingPageProps) => {
 
       if (reset) {
         setBooks(response.books)
+        // Calculate hasMore for reset case
+        const calculatedHasMore = totalCount === 0
+          ? response.books.length > 0
+          : response.books.length < totalCount
+        setHasMore(calculatedHasMore)
       } else {
-        setBooks(prevBooks => [...prevBooks, ...response.books])
+        setBooks(prevBooks => {
+          const newBooks = [...prevBooks, ...response.books]
+          // Calculate hasMore for append case
+          const calculatedHasMore = totalCount === 0
+            ? response.books.length > 0
+            : newBooks.length < totalCount
+          setHasMore(calculatedHasMore)
+          return newBooks
+        })
       }
 
-      // Use the hasMore from the response (based on whether we got a full page)
-      setHasMore(response.hasMore)
       setCurrentPage(page)
     } catch (err) {
       setError('Failed to load books. Please try again.')
@@ -69,7 +80,7 @@ const BooksLandingPage = ({ onBookClick }: BooksLandingPageProps) => {
     } finally {
       setLoading(false)
     }
-  }, [loading, sortOptions])
+  }, [loading, sortOptions, totalCount])
 
   // Fetch total book count once on mount
   useEffect(() => {
