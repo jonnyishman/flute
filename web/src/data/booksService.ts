@@ -85,6 +85,5 @@ export async function fetchBooks(
     books: transformedBooks,
     hasMore,
     nextPage: hasMore ? page + 1 : null,
-    totalCount: 0, // No longer calculated here - use separate book count endpoint
   }
 }

@@ -16,5 +16,4 @@ export interface BooksPaginationResponse {
   books: Book[]
   hasMore: boolean
   nextPage: number | null
-  totalCount: number
 }
