@@ -52,27 +52,16 @@ const BooksLandingPage = ({ onBookClick }: BooksLandingPageProps) => {
     setError(null)
 
     try {
-      // Fetch total count when resetting (initial load or sort change)
-      let totalBookCount = totalCount
-      if (reset) {
-        totalBookCount = await fetchTotalBookCount()
-        setTotalCount(totalBookCount)
-      }
-
       const response = await fetchBooks(page, 12, sortOptions)
 
-      let newBooks: Book[]
       if (reset) {
-        newBooks = response.books
         setBooks(response.books)
       } else {
-        newBooks = [...books, ...response.books]
-        setBooks(newBooks)
+        setBooks(prevBooks => [...prevBooks, ...response.books])
       }
 
-      // Calculate hasMore based on total books loaded vs total available
-      const hasMoreBooks = newBooks.length < totalBookCount
-      setHasMore(hasMoreBooks)
+      // Use the hasMore from the response (based on whether we got a full page)
+      setHasMore(response.hasMore)
       setCurrentPage(page)
     } catch (err) {
       setError('Failed to load books. Please try again.')
@@ -80,7 +69,14 @@ const BooksLandingPage = ({ onBookClick }: BooksLandingPageProps) => {
     } finally {
       setLoading(false)
     }
-  }, [loading, sortOptions, books, totalCount, fetchTotalBookCount])
+  }, [loading, sortOptions])
+
+  // Fetch total book count once on mount
+  useEffect(() => {
+    fetchTotalBookCount().then(count => {
+      setTotalCount(count)
+    })
+  }, [fetchTotalBookCount])
 
   // Initial load
   useEffect(() => {
