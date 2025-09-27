@@ -38,8 +38,8 @@ class TestGetLanguageSummariesEndpoint:
         language = response_data["languages"][0]
         assert language["id"] == english.id
         assert language["name"] == english.name
-        # Should only have id and name, not full details
-        assert set(language.keys()) == {"id", "name"}
+        # Should only have id, name, and flag_image_filepath, not full details
+        assert set(language.keys()) == {"id", "name", "flag_image_filepath"}
 
     def test_get_language_summaries_multiple_sorted(self, client: FlaskClient) -> None:
         """Test retrieving multiple language summaries sorted by name."""
@@ -83,6 +83,39 @@ class TestGetLanguageSummariesEndpoint:
             assert isinstance(language["id"], int)
             assert isinstance(language["name"], str)
 
+    def test_get_language_summaries_with_books_filter(self, client: FlaskClient, english: Language) -> None:
+        """Test filtering languages to only those with books."""
+        from src.models import Book
+
+        # Create a language without books and one with books
+        lang_no_books = Language(name="No Books Language")
+        db.session.add(lang_no_books)
+        db.session.flush()
+
+        # Create a book for the English language
+        book = Book(title="Test Book", language_id=english.id)
+        db.session.add(book)
+        db.session.commit()
+
+        # Test without filter - should return all languages
+        response = client.get("/api/languages")
+        assert response.status_code == 200
+        all_languages = response.json["languages"]
+        assert len(all_languages) == 2
+
+        # Test with filter - should return only languages with books
+        response = client.get("/api/languages?with_books=true")
+        assert response.status_code == 200
+        filtered_languages = response.json["languages"]
+        assert len(filtered_languages) == 1
+        assert filtered_languages[0]["name"] == english.name
+
+        # Test with filter=false - should return all languages
+        response = client.get("/api/languages?with_books=false")
+        assert response.status_code == 200
+        all_languages_false = response.json["languages"]
+        assert len(all_languages_false) == 2
+
 
 class TestGetLanguageDetailEndpoint:
     """Test cases for GET /api/languages/<int:language_id> endpoint."""
@@ -99,6 +132,7 @@ class TestGetLanguageDetailEndpoint:
         # Should have all language fields
         assert response_data["id"] == english.id
         assert response_data["name"] == english.name
+        assert response_data["flag_image_filepath"] == english.flag_image_filepath
         assert response_data["character_substitutions"] == english.character_substitutions
         assert response_data["regexp_split_sentences"] == english.regexp_split_sentences
         assert response_data["exceptions_split_sentences"] == english.exceptions_split_sentences
@@ -126,7 +160,7 @@ class TestGetLanguageDetailEndpoint:
         response_data = response.json
 
         expected_fields = {
-            "id", "name", "character_substitutions", "regexp_split_sentences",
+            "id", "name", "flag_image_filepath", "character_substitutions", "regexp_split_sentences",
             "exceptions_split_sentences", "word_characters", "right_to_left",
             "show_romanization", "parser_type"
         }
@@ -432,3 +466,42 @@ class TestCreateLanguageEndpoint:
             ).scalar_one()
             assert language.right_to_left == request_data["right_to_left"]
             assert language.show_romanization == request_data["show_romanization"]
+
+    def test_create_language_with_flag_image_filepath(self, client: FlaskClient) -> None:
+        """Test creating language with flag image filepath."""
+        # Given
+        request_data = {
+            "name": "Test Flag Language",
+            "flag_image_filepath": "/images/flags/test.png"
+        }
+
+        # When
+        response = client.post("/api/languages", json=request_data)
+
+        # Then
+        assert response.status_code == 201
+        response_data = response.json
+        language_id = response_data["language_id"]
+
+        # Verify flag image filepath was stored correctly
+        language = db.session.execute(
+            sa.select(Language).where(Language.id == language_id)
+        ).scalar_one()
+        assert language.flag_image_filepath == "/images/flags/test.png"
+
+    def test_update_language_flag_image_filepath(self, client: FlaskClient, english: Language) -> None:
+        """Test updating language flag image filepath."""
+        # Given
+        request_data = {"flag_image_filepath": "/images/flags/uk.png"}
+
+        # When
+        response = client.patch(f"/api/languages/{english.id}", json=request_data)
+
+        # Then
+        assert response.status_code == 204
+
+        # Verify flag image filepath was updated
+        updated_language = db.session.execute(
+            sa.select(Language).where(Language.id == english.id)
+        ).scalar_one()
+        assert updated_language.flag_image_filepath == "/images/flags/uk.png"

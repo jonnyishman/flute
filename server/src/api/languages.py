@@ -1,12 +1,12 @@
 """API routes for language-related operations"""
 
 import sqlalchemy as sa
-from flask import abort
+from flask import abort, request
 from flask_pydantic import validate
 from pydantic import BaseModel, ConfigDict, Field
 
 from src.api.routes import api_bp
-from src.models import Language, db
+from src.models import Book, Language, db
 
 
 class LanguageSummary(BaseModel):
@@ -15,6 +15,7 @@ class LanguageSummary(BaseModel):
 
     id: int
     name: str
+    flag_image_filepath: str | None
 
 
 class LanguageDetail(BaseModel):
@@ -23,6 +24,7 @@ class LanguageDetail(BaseModel):
 
     id: int
     name: str
+    flag_image_filepath: str | None
     character_substitutions: str
     regexp_split_sentences: str
     exceptions_split_sentences: str
@@ -36,6 +38,7 @@ class LanguageCreate(BaseModel):
     """Request model for creating a new language."""
 
     name: str = Field(max_length=40)
+    flag_image_filepath: str | None = Field(default=None, max_length=500)
     character_substitutions: str = Field(default="´='|`='|'='|'='|...=…|..=‥", max_length=500)
     regexp_split_sentences: str = Field(default=".!?", max_length=500)
     exceptions_split_sentences: str = Field(default="Mr.|Mrs.|Dr.|[A-Z].|Vd.|Vds.", max_length=500)
@@ -49,6 +52,7 @@ class LanguageUpdate(BaseModel):
     """Request model for updating an existing language."""
 
     name: str | None = Field(None, max_length=40)
+    flag_image_filepath: str | None = Field(None, max_length=500)
     character_substitutions: str | None = Field(None, max_length=500)
     regexp_split_sentences: str | None = Field(None, max_length=500)
     exceptions_split_sentences: str | None = Field(None, max_length=500)
@@ -76,9 +80,23 @@ def get_language_summaries() -> LanguageSummariesResponse:
     """
     Retrieve summary of all languages.
 
-    Returns basic language information (ID and name only).
+    Returns basic language information (ID, name, and flag image filepath).
+    Query parameter 'with_books=true' filters to languages with at least one book.
     """
-    stmt = sa.select(Language.id, Language.name).order_by(Language.name)
+    with_books = request.args.get("with_books", "false").lower() == "true"
+
+    if with_books:
+        stmt = (
+            sa.select(Language.id, Language.name, Language.flag_image_filepath)
+            .join(Book, Book.language_id == Language.id)
+            .distinct()
+            .order_by(Language.name)
+        )
+    else:
+        stmt = sa.select(
+            Language.id, Language.name, Language.flag_image_filepath
+        ).order_by(Language.name)
+
     rows = db.session.execute(stmt).all()
     return LanguageSummariesResponse(
         languages=[LanguageSummary.model_validate(row) for row in rows]

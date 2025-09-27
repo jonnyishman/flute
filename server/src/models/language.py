@@ -12,6 +12,7 @@ class Language(db.Model, AuditMixin):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String(40), nullable=False)
+    flag_image_filepath: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
     character_substitutions: Mapped[str] = mapped_column(
         String(500), nullable=False, default="´='|`='|'='|'='|...=…|..=‥"
