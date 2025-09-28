@@ -51,6 +51,9 @@ export interface BookSummary {
   known_terms: number
   learning_terms: number
   unknown_terms: number
+  last_visited_chapter: number | null
+  last_visited_word_index: number | null
+  last_read: string | null
 }
 
 export interface BookSummariesResponse {

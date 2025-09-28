@@ -19,12 +19,10 @@ function transformBookSummary(summary: BookSummary): Book {
     unknownWords: summary.unknown_terms,
     learningWords: summary.learning_terms,
     knownWords: summary.known_terms,
-    // Mock data for fields not available from backend
-    // In a real implementation, these would come from additional API calls
-    lastReadDate: new Date().toISOString(),
+    lastReadDate: summary.last_read || new Date().toISOString(),
     readProgressRatio: summary.total_terms > 0 ? summary.known_terms / summary.total_terms : 0,
-    totalChapters: 20, // Default placeholder
-    lastReadChapter: 1,
+    totalChapters: 20, // Default placeholder - would need separate API call for chapter count
+    lastReadChapter: summary.last_visited_chapter || 1,
   }
 }
 
