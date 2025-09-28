@@ -31,7 +31,6 @@ vi.mock('../data/booksService', () => ({
         lastReadDate: '2024-01-01T00:00:00.000Z',
         readProgressRatio: 0.25,
         lastReadChapter: 5,
-        totalChapters: 20,
       }
     ],
     nextPage: null,

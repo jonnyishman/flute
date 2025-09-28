@@ -28,9 +28,8 @@ const generateDummyBooks = (startId: number, count: number): Book[] => {
     const learningWords = Math.floor(Math.random() * 3000)
     const knownWords = Math.max(0, wordsRead - unknownWords - learningWords)
     
-    const totalChapters = Math.floor(Math.random() * 30) + 10 // 10-40 chapters
-    const lastReadChapter = Math.floor(readProgress * totalChapters) + 1
-    
+    const lastReadChapter = Math.floor(readProgress * 20) + 1 // Assume up to 20 chapters for lastReadChapter calculation
+
     return {
       id: `book-${id}`,
       title: bookTitles[i % bookTitles.length],
@@ -42,7 +41,6 @@ const generateDummyBooks = (startId: number, count: number): Book[] => {
       lastReadDate: new Date(Date.now() - Math.floor(Math.random() * 30 * 24 * 60 * 60 * 1000)).toISOString(), // Random date within last 30 days
       readProgressRatio: readProgress,
       lastReadChapter,
-      totalChapters,
     }
   })
 }
@@ -54,7 +52,9 @@ const sortBooks = (books: Book[], sortOptions: SortOptions): Book[] => {
     
     switch (sortOptions.field) {
       case 'lastRead':
-        comparison = new Date(a.lastReadDate).getTime() - new Date(b.lastReadDate).getTime()
+        const dateA = a.lastReadDate ? new Date(a.lastReadDate).getTime() : 0
+        const dateB = b.lastReadDate ? new Date(b.lastReadDate).getTime() : 0
+        comparison = dateA - dateB
         break
       case 'alphabetical':
         comparison = a.title.localeCompare(b.title)

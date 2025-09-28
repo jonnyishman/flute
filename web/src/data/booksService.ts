@@ -19,9 +19,8 @@ function transformBookSummary(summary: BookSummary): Book {
     unknownWords: summary.unknown_terms,
     learningWords: summary.learning_terms,
     knownWords: summary.known_terms,
-    lastReadDate: summary.last_read || new Date().toISOString(),
+    lastReadDate: summary.last_read,
     readProgressRatio: summary.total_terms > 0 ? summary.known_terms / summary.total_terms : 0,
-    totalChapters: 20, // Default placeholder - would need separate API call for chapter count
     lastReadChapter: summary.last_visited_chapter || 1,
   }
 }

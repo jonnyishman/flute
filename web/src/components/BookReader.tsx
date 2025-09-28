@@ -222,9 +222,11 @@ const BookReader = ({ book: propBook, chapter: propChapter, onBackToLibrary }: B
 
   const changeChapter = useCallback((delta: number) => {
     if (!state.book) return
-    
+
     const newChapter = state.currentChapter + delta
-    if (newChapter >= 1 && newChapter <= state.book.totalChapters) {
+    // For now, allow navigation without strict chapter limits since totalChapters is not available
+    // This could be enhanced to fetch actual chapter count from a separate API endpoint
+    if (newChapter >= 1) {
       triggerHapticFeedback()
       setState(prev => ({ ...prev, currentChapter: newChapter }))
       // Update book progress when changing chapters
@@ -299,7 +301,9 @@ const BookReader = ({ book: propBook, chapter: propChapter, onBackToLibrary }: B
     return null
   }
 
-  const progressPercentage = Math.round((state.currentChapter / state.book.totalChapters) * 100)
+  // Progress percentage - using a fallback since totalChapters is not available in Book interface
+  // This could be enhanced to fetch actual chapter count from a separate API endpoint
+  const progressPercentage = 0 // Temporarily disabled until chapter count is available
 
   return (
     <Box sx={{
@@ -371,7 +375,7 @@ const BookReader = ({ book: propBook, chapter: propChapter, onBackToLibrary }: B
                 whiteSpace: 'nowrap'
               }}
             >
-              {isMobile ? `${state.currentChapter}/${state.book.totalChapters}` : `Chapter ${state.currentChapter} of ${state.book.totalChapters}`}
+              {isMobile ? `Chapter ${state.currentChapter}` : `Chapter ${state.currentChapter}`}
             </Typography>
 
             {/* Progress Bar - Hidden on xs screens */}
@@ -410,7 +414,7 @@ const BookReader = ({ book: propBook, chapter: propChapter, onBackToLibrary }: B
 
           <IconButton
             onClick={() => changeChapter(1)}
-            disabled={state.currentChapter >= state.book.totalChapters}
+            disabled={false} // Temporarily removed limit until chapter count is available
             aria-label="Next chapter"
             sx={{ mr: { xs: 1, sm: 2 } }}
           >

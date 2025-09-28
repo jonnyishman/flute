@@ -6,9 +6,8 @@ export interface Book {
   unknownWords: number
   learningWords: number
   knownWords: number
-  lastReadDate: string
+  lastReadDate: string | null
   readProgressRatio: number // 0-1, representing percentage read
-  totalChapters: number
   lastReadChapter?: number
 }
 
