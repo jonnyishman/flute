@@ -11,10 +11,15 @@ const DEFAULT_LANGUAGE_ID = 1
  * Maps backend BookSummary to frontend Book format
  */
 function transformBookSummary(summary: BookSummary): Book {
+  // Use backend image API if cover art exists, otherwise use placeholder
+  const coverArtUrl = summary.cover_art_filepath
+    ? `/api/images/${summary.cover_art_filepath}`
+    : `https://picsum.photos/300/400?random=${summary.book_id}`
+
   return {
     id: summary.book_id.toString(),
     title: summary.title,
-    coverArt: summary.cover_art_filepath || `https://picsum.photos/300/400?random=${summary.book_id}`,
+    coverArt: coverArtUrl,
     wordCount: summary.total_terms,
     unknownWords: summary.unknown_terms,
     learningWords: summary.learning_terms,

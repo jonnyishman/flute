@@ -32,6 +32,7 @@ interface BookTileProps {
 
 const BookTile = ({ book, onClick }: BookTileProps) => {
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null)
+  const [imageError, setImageError] = React.useState(false)
   const menuOpen = Boolean(anchorEl)
 
   const handleMenuOpen = (event: React.MouseEvent<HTMLButtonElement>) => {
@@ -45,6 +46,10 @@ const BookTile = ({ book, onClick }: BookTileProps) => {
 
   const handleMenuItemClick = (_action: string) => {
     handleMenuClose()
+  }
+
+  const handleImageError = () => {
+    setImageError(true)
   }
   const formatNumber = (num: number): string => {
     if (num >= 1000) {
@@ -91,16 +96,38 @@ const BookTile = ({ book, onClick }: BookTileProps) => {
       }}
       onClick={() => onClick?.(book)}
     >
-      <CardMedia
-        component="img"
-        image={book.coverArt}
-        alt={book.title}
-        sx={{
-          objectFit: 'cover',
-          width: '100%',
-          height: { xs: 180, sm: 200 },
-        }}
-      />
+      {imageError ? (
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexDirection: 'column',
+            width: '100%',
+            height: { xs: 180, sm: 200 },
+            backgroundColor: 'grey.100',
+            color: 'grey.500',
+            gap: 1,
+          }}
+        >
+          <BookIcon sx={{ fontSize: { xs: 48, sm: 56 } }} />
+          <Typography variant="body2" align="center" sx={{ px: 2 }}>
+            No Cover Available
+          </Typography>
+        </Box>
+      ) : (
+        <CardMedia
+          component="img"
+          image={book.coverArt}
+          alt={book.title}
+          onError={handleImageError}
+          sx={{
+            objectFit: 'cover',
+            width: '100%',
+            height: { xs: 180, sm: 200 },
+          }}
+        />
+      )}
       
       <CardContent sx={{ flexGrow: 1, pb: 2, px: { xs: 2, sm: 2 }, py: { xs: 1.5, sm: 2 } }}>
         <Typography
