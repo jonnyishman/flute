@@ -1860,80 +1860,211 @@ class TestGetChapterCountEndpoint:
     """Test cases for GET /api/books/{book_id}/chapters/count endpoint."""
 
     def test_get_chapter_count_success(self, client: FlaskClient, english: Language) -> None:
-        """Test successful chapter count retrieval for a book with multiple chapters."""
-        # Given
-        response = client.post("/api/books", json={
-            "title": "Test Book",
-            "language_id": english.id,
-            "chapters": [
-                "Chapter 1 content",
-                "Chapter 2 content",
-                "Chapter 3 content"
-            ]
-        })
-        assert response.status_code == 201
-        book_id = response.get_json()["book_id"]
+        """Test successful chapter count retrieval for a book with chapters."""
+        # Given - Create a book with chapters
+        book = Book(title="Test Book", language_id=english.id, is_archived=False)
+        db.session.add(book)
+        db.session.flush()
+
+        chapters = [
+            Chapter(book_id=book.id, chapter_number=1, content="Chapter 1 content", word_count=3),
+            Chapter(book_id=book.id, chapter_number=2, content="Chapter 2 content", word_count=3),
+            Chapter(book_id=book.id, chapter_number=3, content="Chapter 3 content", word_count=3),
+        ]
+        for chapter in chapters:
+            db.session.add(chapter)
+        db.session.commit()
 
         # When
-        response = client.get(f"/api/books/{book_id}/chapters/count")
+        response = client.get(f"/api/books/{book.id}/chapters/count")
 
         # Then
         assert response.status_code == 200
         data = response.get_json()
+        assert "count" in data
         assert data["count"] == 3
 
-    def test_get_chapter_count_single_chapter(self, client: FlaskClient, english: Language) -> None:
-        """Test chapter count for a book with only one chapter."""
-        # Given
-        response = client.post("/api/books", json={
-            "title": "Single Chapter Book",
-            "language_id": english.id,
-            "chapters": ["Only chapter content"]
-        })
-        assert response.status_code == 201
-        book_id = response.get_json()["book_id"]
+    def test_get_chapter_count_no_chapters(self, client: FlaskClient, english: Language) -> None:
+        """Test chapter count when book has no chapters."""
+        # Given - Book with no chapters
+        book = Book(title="Empty Book", language_id=english.id, is_archived=False)
+        db.session.add(book)
+        db.session.commit()
 
         # When
-        response = client.get(f"/api/books/{book_id}/chapters/count")
+        response = client.get(f"/api/books/{book.id}/chapters/count")
+
+        # Then
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["count"] == 0
+
+    def test_get_chapter_count_book_not_found(self, client: FlaskClient) -> None:
+        """Test error when book does not exist."""
+        # When
+        response = client.get("/api/books/99999/chapters/count")
+
+        # Then
+        assert response.status_code == 404
+        data = response.get_json()
+        assert "Book 99999 not found" in data["msg"]
+
+    def test_get_chapter_count_single_chapter(self, client: FlaskClient, spanish: Language) -> None:
+        """Test chapter count for book with single chapter."""
+        # Given - Book with one chapter
+        book = Book(title="Single Chapter Book", language_id=spanish.id, is_archived=False)
+        db.session.add(book)
+        db.session.flush()
+
+        chapter = Chapter(book_id=book.id, chapter_number=1, content="Only chapter", word_count=2)
+        db.session.add(chapter)
+        db.session.commit()
+
+        # When
+        response = client.get(f"/api/books/{book.id}/chapters/count")
 
         # Then
         assert response.status_code == 200
         data = response.get_json()
         assert data["count"] == 1
 
-    def test_get_chapter_count_nonexistent_book(self, client: FlaskClient) -> None:
-        """Test chapter count for a book that doesn't exist."""
-        # When
-        response = client.get("/api/books/99999/chapters/count")
+    def test_get_chapter_count_many_chapters(self, client: FlaskClient, english: Language) -> None:
+        """Test chapter count with large number of chapters."""
+        # Given - Book with many chapters
+        book = Book(title="Many Chapters Book", language_id=english.id, is_archived=False)
+        db.session.add(book)
+        db.session.flush()
 
-        # Then
-        assert response.status_code == 404
-
-    def test_get_chapter_count_invalid_book_id(self, client: FlaskClient) -> None:
-        """Test chapter count with invalid book ID."""
-        # When
-        response = client.get("/api/books/invalid/chapters/count")
-
-        # Then
-        assert response.status_code == 404
-
-    def test_get_chapter_count_response_structure(self, client: FlaskClient, english: Language) -> None:
-        """Test that the response has the correct structure."""
-        # Given
-        response = client.post("/api/books", json={
-            "title": "Structure Test Book",
-            "language_id": english.id,
-            "chapters": ["Chapter content"]
-        })
-        book_id = response.get_json()["book_id"]
+        chapters = [
+            Chapter(book_id=book.id, chapter_number=i, content=f"Chapter {i} content", word_count=3)
+            for i in range(1, 51)  # 50 chapters
+        ]
+        for chapter in chapters:
+            db.session.add(chapter)
+        db.session.commit()
 
         # When
-        response = client.get(f"/api/books/{book_id}/chapters/count")
+        response = client.get(f"/api/books/{book.id}/chapters/count")
 
         # Then
         assert response.status_code == 200
         data = response.get_json()
+        assert data["count"] == 50
+
+    def test_get_chapter_count_multiple_books(self, client: FlaskClient, german: Language) -> None:
+        """Test that chapter count is specific to the requested book."""
+        # Given - Two books with different numbers of chapters
+        book1 = Book(title="Book 1", language_id=german.id, is_archived=False)
+        book2 = Book(title="Book 2", language_id=german.id, is_archived=False)
+        db.session.add_all([book1, book2])
+        db.session.flush()
+
+        # Book 1 has 2 chapters
+        chapters1 = [
+            Chapter(book_id=book1.id, chapter_number=1, content="Book 1 Chapter 1", word_count=4),
+            Chapter(book_id=book1.id, chapter_number=2, content="Book 1 Chapter 2", word_count=4),
+        ]
+        # Book 2 has 5 chapters
+        chapters2 = [
+            Chapter(book_id=book2.id, chapter_number=i, content=f"Book 2 Chapter {i}", word_count=4)
+            for i in range(1, 6)
+        ]
+        for chapter in chapters1 + chapters2:
+            db.session.add(chapter)
+        db.session.commit()
+
+        # When - Check book 1
+        response1 = client.get(f"/api/books/{book1.id}/chapters/count")
+
+        # Then
+        assert response1.status_code == 200
+        data1 = response1.get_json()
+        assert data1["count"] == 2
+
+        # When - Check book 2
+        response2 = client.get(f"/api/books/{book2.id}/chapters/count")
+
+        # Then
+        assert response2.status_code == 200
+        data2 = response2.get_json()
+        assert data2["count"] == 5
+
+    def test_get_chapter_count_archived_book(self, client: FlaskClient, english: Language) -> None:
+        """Test chapter count works for archived books."""
+        # Given - Archived book with chapters
+        book = Book(title="Archived Book", language_id=english.id, is_archived=True)
+        db.session.add(book)
+        db.session.flush()
+
+        chapters = [
+            Chapter(book_id=book.id, chapter_number=1, content="Archived Chapter 1", word_count=3),
+            Chapter(book_id=book.id, chapter_number=2, content="Archived Chapter 2", word_count=3),
+        ]
+        for chapter in chapters:
+            db.session.add(chapter)
+        db.session.commit()
+
+        # When
+        response = client.get(f"/api/books/{book.id}/chapters/count")
+
+        # Then - Should still work for archived books
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["count"] == 2
+
+    def test_get_chapter_count_invalid_book_id_type(self, client: FlaskClient) -> None:
+        """Test error handling for invalid book_id type."""
+        # When
+        response = client.get("/api/books/invalid/chapters/count")
+
+        # Then
+        assert response.status_code == 404  # Flask converts invalid int to 404
+
+    def test_get_chapter_count_response_structure(self, client: FlaskClient, spanish: Language) -> None:
+        """Test that response has correct structure."""
+        # Given
+        book = Book(title="Structure Test Book", language_id=spanish.id, is_archived=False)
+        db.session.add(book)
+        db.session.flush()
+
+        chapter = Chapter(book_id=book.id, chapter_number=1, content="Test content", word_count=2)
+        db.session.add(chapter)
+        db.session.commit()
+
+        # When
+        response = client.get(f"/api/books/{book.id}/chapters/count")
+
+        # Then
+        assert response.status_code == 200
+        assert response.content_type == "application/json"
+
+        data = response.get_json()
+        assert isinstance(data, dict)
         assert "count" in data
         assert isinstance(data["count"], int)
         assert data["count"] >= 0
+
+    def test_get_chapter_count_gap_in_chapter_numbers(self, client: FlaskClient, english: Language) -> None:
+        """Test chapter count when there are gaps in chapter numbers."""
+        # Given - Book with non-consecutive chapter numbers
+        book = Book(title="Gap Chapters Book", language_id=english.id, is_archived=False)
+        db.session.add(book)
+        db.session.flush()
+
+        chapters = [
+            Chapter(book_id=book.id, chapter_number=1, content="Chapter 1", word_count=2),
+            Chapter(book_id=book.id, chapter_number=5, content="Chapter 5", word_count=2),
+            Chapter(book_id=book.id, chapter_number=10, content="Chapter 10", word_count=2),
+        ]
+        for chapter in chapters:
+            db.session.add(chapter)
+        db.session.commit()
+
+        # When
+        response = client.get(f"/api/books/{book.id}/chapters/count")
+
+        # Then - Should count total chapters, not highest chapter number
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["count"] == 3
 

@@ -296,11 +296,6 @@ class BookCountResponse(BaseModel):
     count: int
 
 
-class ChapterCountResponse(BaseModel):
-    """Response model for chapter count."""
-    count: int
-
-
 class TermInfo(NamedTuple):
     term_id: int
     norm: str
@@ -504,21 +499,21 @@ def get_book_count(query: BookCountRequest) -> BookCountResponse:
     return BookCountResponse(count=count)
 
 
+class ChapterCountResponse(BaseModel):
+    """Response model for chapter count."""
+    count: int
+
+
 @api_bp.route("/books/<int:book_id>/chapters/count", methods=["GET"])
 @validate()
 def get_chapter_count(book_id: int) -> ChapterCountResponse:
     """
     Get the total number of chapters for a given book ID.
     """
-    # First verify that the book exists
-    book_exists = db.session.execute(
-        sa.select(sa.func.count(Book.id)).where(Book.id == book_id)
-    ).scalar()
+    # Verify book exists first
+    if not db.session.get(Book, book_id):
+        abort(404, description=f"Book {book_id} not found")
 
-    if not book_exists:
-        abort(404, description="Book not found")
-
-    # Count the chapters for this book
     stmt = sa.select(sa.func.count(Chapter.id)).where(Chapter.book_id == book_id)
     count = db.session.execute(stmt).scalar()
     return ChapterCountResponse(count=count)

@@ -5,7 +5,6 @@ import type {
   BookCountResponse,
   BookSummariesRequest,
   BookSummariesResponse,
-  ChapterCountResponse,
   CreateBookRequest,
   CreateBookResponse,
   CreateTermRequest,
@@ -194,12 +193,6 @@ class ApiClient {
     return response.data
   }
 
-  async getChapterCount(bookId: number): Promise<ChapterCountResponse> {
-    const response = await this.request<ChapterCountResponse>(`/books/${bookId}/chapters/count`, {
-      method: 'GET',
-    })
-    return response.data
-  }
 
   // Terms API
   async createTerm(request: CreateTermRequest): Promise<TermIdResponse> {
@@ -232,7 +225,6 @@ export const api = {
     create: (request: CreateBookRequest) => apiClient.createBook(request),
     getSummaries: (request: BookSummariesRequest) => apiClient.getBookSummaries(request),
     getCount: (request: BookCountRequest) => apiClient.getBookCount(request),
-    getChapterCount: (bookId: number) => apiClient.getChapterCount(bookId),
   },
   terms: {
     create: (request: CreateTermRequest) => apiClient.createTerm(request),

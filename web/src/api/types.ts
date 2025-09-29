@@ -68,9 +68,6 @@ export interface BookCountResponse {
   count: number
 }
 
-export interface ChapterCountResponse {
-  count: number
-}
 
 // Term types
 export interface UpdateTermRequest {
