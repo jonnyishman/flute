@@ -222,9 +222,12 @@ const BookReader = ({ book: propBook, chapter: propChapter, onBackToLibrary }: B
 
   const changeChapter = useCallback((delta: number) => {
     if (!state.book) return
-    
+
     const newChapter = state.currentChapter + delta
-    if (newChapter >= 1 && newChapter <= state.book.totalChapters) {
+    const hasValidTotalChapters = state.book.totalChapters && state.book.totalChapters > 0
+
+    // Allow navigation if chapter >= 1 and either no total chapters known or within known range
+    if (newChapter >= 1 && (!hasValidTotalChapters || newChapter <= state.book.totalChapters)) {
       triggerHapticFeedback()
       setState(prev => ({ ...prev, currentChapter: newChapter }))
       // Update book progress when changing chapters
@@ -299,7 +302,10 @@ const BookReader = ({ book: propBook, chapter: propChapter, onBackToLibrary }: B
     return null
   }
 
-  const progressPercentage = Math.round((state.currentChapter / state.book.totalChapters) * 100)
+  const hasTotalChapters = state.book.totalChapters && state.book.totalChapters > 0
+  const progressPercentage = hasTotalChapters
+    ? Math.round((state.currentChapter / state.book.totalChapters) * 100)
+    : 0
 
   return (
     <Box sx={{
@@ -371,46 +377,51 @@ const BookReader = ({ book: propBook, chapter: propChapter, onBackToLibrary }: B
                 whiteSpace: 'nowrap'
               }}
             >
-              {isMobile ? `${state.currentChapter}/${state.book.totalChapters}` : `Chapter ${state.currentChapter} of ${state.book.totalChapters}`}
+              {hasTotalChapters
+                ? (isMobile ? `${state.currentChapter}/${state.book.totalChapters}` : `Chapter ${state.currentChapter} of ${state.book.totalChapters}`)
+                : (isMobile ? `Chapter ${state.currentChapter}` : `Chapter ${state.currentChapter}`)
+              }
             </Typography>
 
-            {/* Progress Bar - Hidden on xs screens */}
-            <Box sx={{
-              display: { xs: 'none', sm: 'flex' },
-              alignItems: 'center',
-              width: { sm: '150px', md: '200px' },
-              mt: 0.5
-            }}>
-              <Typography
-                variant="caption"
-                sx={{ mr: 1 }}
-                aria-hidden="true"
-              >
-                {progressPercentage}%
-              </Typography>
-              <LinearProgress
-                variant="determinate"
-                value={progressPercentage}
-                sx={{
-                  flexGrow: 1,
-                  mr: 1,
-                  height: 4,
-                  borderRadius: 2
-                }}
-                aria-label={`Reading progress: ${progressPercentage}% complete`}
-              />
-              <Typography
-                variant="caption"
-                aria-hidden="true"
-              >
-                100%
-              </Typography>
-            </Box>
+            {/* Progress Bar - Hidden on xs screens and when total chapters unavailable */}
+            {hasTotalChapters && (
+              <Box sx={{
+                display: { xs: 'none', sm: 'flex' },
+                alignItems: 'center',
+                width: { sm: '150px', md: '200px' },
+                mt: 0.5
+              }}>
+                <Typography
+                  variant="caption"
+                  sx={{ mr: 1 }}
+                  aria-hidden="true"
+                >
+                  {progressPercentage}%
+                </Typography>
+                <LinearProgress
+                  variant="determinate"
+                  value={progressPercentage}
+                  sx={{
+                    flexGrow: 1,
+                    mr: 1,
+                    height: 4,
+                    borderRadius: 2
+                  }}
+                  aria-label={`Reading progress: ${progressPercentage}% complete`}
+                />
+                <Typography
+                  variant="caption"
+                  aria-hidden="true"
+                >
+                  100%
+                </Typography>
+              </Box>
+            )}
           </Box>
 
           <IconButton
             onClick={() => changeChapter(1)}
-            disabled={state.currentChapter >= state.book.totalChapters}
+            disabled={Boolean(hasTotalChapters && state.currentChapter >= state.book.totalChapters)}
             aria-label="Next chapter"
             sx={{ mr: { xs: 1, sm: 2 } }}
           >
