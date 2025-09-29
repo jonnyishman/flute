@@ -9,6 +9,12 @@ import type {
   CreateBookResponse,
   CreateTermRequest,
   HealthCheckResponse,
+  LanguageCreate,
+  LanguageCreateResponse,
+  LanguageDetail,
+  LanguageSummariesRequest,
+  LanguageSummariesResponse,
+  LanguageUpdate,
   TermIdResponse,
   UpdateTermRequest,
 } from './types'
@@ -208,6 +214,37 @@ class ApiClient {
       body: request,
     })
   }
+
+  // Languages API
+  async getLanguageSummaries(request: LanguageSummariesRequest = {}): Promise<LanguageSummariesResponse> {
+    const response = await this.request<LanguageSummariesResponse>('/languages', {
+      method: 'GET',
+      params: request as unknown as Record<string, unknown>,
+    })
+    return response.data
+  }
+
+  async getLanguageDetail(languageId: number): Promise<LanguageDetail> {
+    const response = await this.request<LanguageDetail>(`/languages/${languageId}`, {
+      method: 'GET',
+    })
+    return response.data
+  }
+
+  async createLanguage(request: LanguageCreate): Promise<LanguageCreateResponse> {
+    const response = await this.request<LanguageCreateResponse>('/languages', {
+      method: 'POST',
+      body: request,
+    })
+    return response.data
+  }
+
+  async updateLanguage(languageId: number, request: LanguageUpdate): Promise<void> {
+    await this.request<void>(`/languages/${languageId}`, {
+      method: 'PATCH',
+      body: request,
+    })
+  }
 }
 
 // Create and export a singleton instance
@@ -228,5 +265,11 @@ export const api = {
   terms: {
     create: (request: CreateTermRequest) => apiClient.createTerm(request),
     update: (termId: number, request: UpdateTermRequest) => apiClient.updateTerm(termId, request),
+  },
+  languages: {
+    getSummaries: (request: LanguageSummariesRequest = {}) => apiClient.getLanguageSummaries(request),
+    getDetail: (languageId: number) => apiClient.getLanguageDetail(languageId),
+    create: (request: LanguageCreate) => apiClient.createLanguage(request),
+    update: (languageId: number, request: LanguageUpdate) => apiClient.updateLanguage(languageId, request),
   },
 }

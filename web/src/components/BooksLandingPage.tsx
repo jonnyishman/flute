@@ -13,12 +13,9 @@ import { Book } from '../types/book'
 import { SortOptions } from '../types/sorting'
 import { fetchBooks } from '../data/booksService'
 import { api } from '../api'
-import { bookSortOptionsAtom } from '../store/atoms'
+import { bookSortOptionsAtom, selectedLanguageAtom } from '../store/atoms'
 import BookTile from './BookTile'
 import BooksSortControls from './BooksSortControls'
-
-// Default language ID - in a real app this would come from user settings
-const DEFAULT_LANGUAGE_ID = 1
 
 interface BooksLandingPageProps {
   onBookClick?: (book: Book) => void
@@ -32,27 +29,30 @@ const BooksLandingPage = ({ onBookClick }: BooksLandingPageProps) => {
   const [currentPage, setCurrentPage] = useState(1)
   const [totalCount, setTotalCount] = useState(0)
   const [sortOptions, setSortOptions] = useAtom(bookSortOptionsAtom)
+  const [selectedLanguage] = useAtom(selectedLanguageAtom)
 
   // Function to fetch total book count
   const fetchTotalBookCount = useCallback(async () => {
+    if (!selectedLanguage) return 0
+
     try {
-      const response = await api.books.getCount({ language_id: DEFAULT_LANGUAGE_ID })
+      const response = await api.books.getCount({ language_id: selectedLanguage.id })
       return response.count
     } catch (err) {
       console.error('Error fetching book count:', err)
       return 0
     }
-  }, [])
+  }, [selectedLanguage])
 
   // Function to load more books
   const loadBooks = useCallback(async (page: number, reset: boolean = false) => {
-    if (loading) return
+    if (loading || !selectedLanguage) return
 
     setLoading(true)
     setError(null)
 
     try {
-      const response = await fetchBooks(page, 12, sortOptions)
+      const response = await fetchBooks(page, 12, sortOptions, selectedLanguage.id)
 
       if (reset) {
         setBooks(response.books)
@@ -80,26 +80,24 @@ const BooksLandingPage = ({ onBookClick }: BooksLandingPageProps) => {
     } finally {
       setLoading(false)
     }
-  }, [loading, sortOptions, totalCount])
+  }, [loading, sortOptions, totalCount, selectedLanguage])
 
-  // Fetch total book count once on mount
+  // Fetch total book count when language changes
   useEffect(() => {
-    fetchTotalBookCount().then(count => {
-      setTotalCount(count)
-    })
-  }, [fetchTotalBookCount])
+    if (selectedLanguage) {
+      fetchTotalBookCount().then(count => {
+        setTotalCount(count)
+      })
+    }
+  }, [fetchTotalBookCount, selectedLanguage])
 
-  // Initial load
+  // Load books when language or sort options change
   useEffect(() => {
-    loadBooks(1, true)
+    if (selectedLanguage) {
+      loadBooks(1, true)
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  // Reload books when sort options change
-  useEffect(() => {
-    loadBooks(1, true)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sortOptions])
+  }, [selectedLanguage, sortOptions])
 
   // Handle sort change
   const handleSortChange = (newSortOptions: SortOptions) => {

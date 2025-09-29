@@ -82,6 +82,62 @@ export interface TermIdResponse {
   term_id: number
 }
 
+// Language types
+export interface LanguageSummary {
+  id: number
+  name: string
+  flag_image_filepath: string | null
+}
+
+export interface LanguageDetail {
+  id: number
+  name: string
+  flag_image_filepath: string | null
+  character_substitutions: string
+  regexp_split_sentences: string
+  exceptions_split_sentences: string
+  word_characters: string
+  right_to_left: boolean
+  show_romanization: boolean
+  parser_type: string
+}
+
+export interface LanguageCreate {
+  name: string
+  flag_image_filepath?: string | null
+  character_substitutions?: string
+  regexp_split_sentences?: string
+  exceptions_split_sentences?: string
+  word_characters?: string
+  right_to_left?: boolean
+  show_romanization?: boolean
+  parser_type?: string
+}
+
+export interface LanguageUpdate {
+  name?: string
+  flag_image_filepath?: string | null
+  character_substitutions?: string
+  regexp_split_sentences?: string
+  exceptions_split_sentences?: string
+  word_characters?: string
+  right_to_left?: boolean
+  show_romanization?: boolean
+  parser_type?: string
+}
+
+export interface LanguageCreateResponse {
+  language_id: number
+}
+
+export interface LanguageSummariesRequest {
+  with_books?: boolean
+}
+
+export interface LanguageSummariesResponse {
+  languages: LanguageSummary[]
+}
+
 // Error types
 export interface ApiError {
   error: string
