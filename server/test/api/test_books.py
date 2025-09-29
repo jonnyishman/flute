@@ -1855,3 +1855,85 @@ class TestGetBookCountEndpoint:
         data = response.get_json()
         assert data["count"] == 50  # Only unarchived books
 
+
+class TestGetChapterCountEndpoint:
+    """Test cases for GET /api/books/{book_id}/chapters/count endpoint."""
+
+    def test_get_chapter_count_success(self, client: FlaskClient, english: Language) -> None:
+        """Test successful chapter count retrieval for a book with multiple chapters."""
+        # Given
+        response = client.post("/api/books", json={
+            "title": "Test Book",
+            "language_id": english.id,
+            "chapters": [
+                "Chapter 1 content",
+                "Chapter 2 content",
+                "Chapter 3 content"
+            ]
+        })
+        assert response.status_code == 201
+        book_id = response.get_json()["book_id"]
+
+        # When
+        response = client.get(f"/api/books/{book_id}/chapters/count")
+
+        # Then
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["count"] == 3
+
+    def test_get_chapter_count_single_chapter(self, client: FlaskClient, english: Language) -> None:
+        """Test chapter count for a book with only one chapter."""
+        # Given
+        response = client.post("/api/books", json={
+            "title": "Single Chapter Book",
+            "language_id": english.id,
+            "chapters": ["Only chapter content"]
+        })
+        assert response.status_code == 201
+        book_id = response.get_json()["book_id"]
+
+        # When
+        response = client.get(f"/api/books/{book_id}/chapters/count")
+
+        # Then
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["count"] == 1
+
+    def test_get_chapter_count_nonexistent_book(self, client: FlaskClient) -> None:
+        """Test chapter count for a book that doesn't exist."""
+        # When
+        response = client.get("/api/books/99999/chapters/count")
+
+        # Then
+        assert response.status_code == 404
+
+    def test_get_chapter_count_invalid_book_id(self, client: FlaskClient) -> None:
+        """Test chapter count with invalid book ID."""
+        # When
+        response = client.get("/api/books/invalid/chapters/count")
+
+        # Then
+        assert response.status_code == 404
+
+    def test_get_chapter_count_response_structure(self, client: FlaskClient, english: Language) -> None:
+        """Test that the response has the correct structure."""
+        # Given
+        response = client.post("/api/books", json={
+            "title": "Structure Test Book",
+            "language_id": english.id,
+            "chapters": ["Chapter content"]
+        })
+        book_id = response.get_json()["book_id"]
+
+        # When
+        response = client.get(f"/api/books/{book_id}/chapters/count")
+
+        # Then
+        assert response.status_code == 200
+        data = response.get_json()
+        assert "count" in data
+        assert isinstance(data["count"], int)
+        assert data["count"] >= 0
+

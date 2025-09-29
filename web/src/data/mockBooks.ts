@@ -51,11 +51,12 @@ const sortBooks = (books: Book[], sortOptions: SortOptions): Book[] => {
     let comparison = 0
     
     switch (sortOptions.field) {
-      case 'lastRead':
+      case 'lastRead': {
         const dateA = a.lastReadDate ? new Date(a.lastReadDate).getTime() : 0
         const dateB = b.lastReadDate ? new Date(b.lastReadDate).getTime() : 0
         comparison = dateA - dateB
         break
+      }
       case 'alphabetical':
         comparison = a.title.localeCompare(b.title)
         break

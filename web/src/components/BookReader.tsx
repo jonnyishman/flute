@@ -31,6 +31,8 @@ import { fetchBooks } from '../data/mockBooks'
 import { Book } from '../types/book'
 import { readerSettingsAtom, ReaderSettings } from '../store/atoms'
 import useBookProgress from '../hooks/useBookProgress'
+import { api } from '../api'
+import { getCachedChapterCount, setCachedChapterCount } from '../utils/chapterCache'
 
 interface BookReaderProps {
   book?: Book
@@ -47,6 +49,8 @@ interface BookReaderState {
   settingsOpen: boolean
   currentChapter: number
   showTransition: boolean
+  chapterCount: number | null
+  chapterCountLoading: boolean
 }
 
 
@@ -116,6 +120,8 @@ const BookReader = ({ book: propBook, chapter: propChapter, onBackToLibrary }: B
     settingsOpen: false,
     currentChapter: propChapter || (propBook?.lastReadChapter ?? 1),
     showTransition: false,
+    chapterCount: null,
+    chapterCountLoading: false,
   })
 
   // Prevent body scroll when reader is mounted
@@ -174,6 +180,40 @@ const BookReader = ({ book: propBook, chapter: propChapter, onBackToLibrary }: B
     }
   }, [bookId, chapterId, state.book])
 
+  // Load chapter count for the current book
+  useEffect(() => {
+    if (state.book && !state.chapterCountLoading && state.chapterCount === null) {
+      const loadChapterCount = async () => {
+        const book = state.book
+        if (!book) return
+
+        try {
+          // Check cache first
+          const cachedCount = getCachedChapterCount(book.id)
+          if (cachedCount !== null) {
+            setState(prev => ({ ...prev, chapterCount: cachedCount }))
+            return
+          }
+
+          // Load from API if not cached
+          setState(prev => ({ ...prev, chapterCountLoading: true }))
+          const response = await api.books.getChapterCount(parseInt(book.id, 10))
+          const count = response.count
+
+          // Cache the result
+          setCachedChapterCount(book.id, count)
+          setState(prev => ({ ...prev, chapterCount: count, chapterCountLoading: false }))
+        } catch (error) {
+          console.error('Failed to load chapter count:', error)
+          // Fall back to no limit if API fails
+          setState(prev => ({ ...prev, chapterCount: null, chapterCountLoading: false }))
+        }
+      }
+
+      loadChapterCount()
+    }
+  }, [state.book, state.chapterCount, state.chapterCountLoading])
+
   // Memoized chapter content generation
   const memoizedChapterContent = useMemo(() => {
     if (!state.book) return ''
@@ -224,15 +264,15 @@ const BookReader = ({ book: propBook, chapter: propChapter, onBackToLibrary }: B
     if (!state.book) return
 
     const newChapter = state.currentChapter + delta
-    // For now, allow navigation without strict chapter limits since totalChapters is not available
-    // This could be enhanced to fetch actual chapter count from a separate API endpoint
-    if (newChapter >= 1) {
+    const maxChapter = state.chapterCount || Number.MAX_SAFE_INTEGER
+
+    if (newChapter >= 1 && newChapter <= maxChapter) {
       triggerHapticFeedback()
       setState(prev => ({ ...prev, currentChapter: newChapter }))
       // Update book progress when changing chapters
       updateBookProgress(state.book.id, newChapter)
     }
-  }, [state.book, state.currentChapter, updateBookProgress])
+  }, [state.book, state.currentChapter, state.chapterCount, updateBookProgress])
 
   // Mobile swipe handlers removed - horizontal swiping now scrolls through text content
   // Chapter navigation on mobile is handled through the navigation buttons in the toolbar
@@ -301,9 +341,10 @@ const BookReader = ({ book: propBook, chapter: propChapter, onBackToLibrary }: B
     return null
   }
 
-  // Progress percentage - using a fallback since totalChapters is not available in Book interface
-  // This could be enhanced to fetch actual chapter count from a separate API endpoint
-  const progressPercentage = 0 // Temporarily disabled until chapter count is available
+  // Progress percentage based on current chapter and total chapters
+  const progressPercentage = state.chapterCount
+    ? Math.round((state.currentChapter / state.chapterCount) * 100)
+    : 0
 
   return (
     <Box sx={{
@@ -414,7 +455,7 @@ const BookReader = ({ book: propBook, chapter: propChapter, onBackToLibrary }: B
 
           <IconButton
             onClick={() => changeChapter(1)}
-            disabled={false} // Temporarily removed limit until chapter count is available
+            disabled={state.chapterCount ? state.currentChapter >= state.chapterCount : false}
             aria-label="Next chapter"
             sx={{ mr: { xs: 1, sm: 2 } }}
           >
