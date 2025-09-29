@@ -497,3 +497,23 @@ def get_book_count(query: BookCountRequest) -> BookCountResponse:
     )
     count = db.session.execute(stmt).scalar()
     return BookCountResponse(count=count)
+
+
+class ChapterCountResponse(BaseModel):
+    """Response model for chapter count."""
+    count: int
+
+
+@api_bp.route("/books/<int:book_id>/chapters/count", methods=["GET"])
+@validate()
+def get_chapter_count(book_id: int) -> ChapterCountResponse:
+    """
+    Get the total number of chapters for a given book ID.
+    """
+    # Verify book exists first
+    if not db.session.get(Book, book_id):
+        abort(404, description=f"Book {book_id} not found")
+
+    stmt = sa.select(sa.func.count(Chapter.id)).where(Chapter.book_id == book_id)
+    count = db.session.execute(stmt).scalar()
+    return ChapterCountResponse(count=count)
