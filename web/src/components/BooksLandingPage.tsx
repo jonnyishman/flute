@@ -84,17 +84,40 @@ const BooksLandingPage = ({ onBookClick }: BooksLandingPageProps) => {
 
   // Fetch total book count when language changes
   useEffect(() => {
-    if (selectedLanguage) {
-      fetchTotalBookCount().then(count => {
+    if (!selectedLanguage) return
+
+    const currentLanguageId = selectedLanguage.id
+    let isCancelled = false
+
+    fetchTotalBookCount().then(count => {
+      // Only update if this effect hasn't been cancelled and language hasn't changed
+      if (!isCancelled && selectedLanguage?.id === currentLanguageId) {
         setTotalCount(count)
-      })
+      }
+    })
+
+    return () => {
+      isCancelled = true
     }
   }, [fetchTotalBookCount, selectedLanguage])
 
   // Load books when language or sort options change
   useEffect(() => {
-    if (selectedLanguage) {
-      loadBooks(1, true)
+    if (!selectedLanguage) return
+
+    const currentLanguageId = selectedLanguage.id
+    let isCancelled = false
+
+    const loadData = async () => {
+      if (!isCancelled && selectedLanguage?.id === currentLanguageId) {
+        await loadBooks(1, true)
+      }
+    }
+
+    loadData()
+
+    return () => {
+      isCancelled = true
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedLanguage, sortOptions])

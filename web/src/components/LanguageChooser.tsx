@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import {
   IconButton,
   Menu,
@@ -25,41 +25,56 @@ const LanguageChooser = () => {
   const [languages, setLanguages] = useState<LanguageSummary[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [imageErrors, setImageErrors] = useState<Set<string>>(new Set())
 
   const open = Boolean(anchorEl)
 
-  const loadLanguages = useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const response = await api.languages.getSummaries({ with_books: true })
-      setLanguages(response.languages)
+  const handleImageError = (filepath: string) => {
+    setImageErrors(prev => new Set(prev).add(filepath))
+  }
 
-      // If no language is selected, select the first one with books
-      if (!selectedLanguage && response.languages.length > 0) {
-        setSelectedLanguage(response.languages[0])
+  // Load languages on mount only
+  useEffect(() => {
+    // Skip if already loaded
+    if (languages.length > 0) return
+
+    let isCancelled = false
+
+    const fetchLanguages = async () => {
+      if (isCancelled) return
+
+      setLoading(true)
+      setError(null)
+      try {
+        const response = await api.languages.getSummaries({ with_books: true })
+
+        if (isCancelled) return
+
+        setLanguages(response.languages)
+
+        // Auto-select first language if none selected
+        if (!selectedLanguage && response.languages.length > 0) {
+          setSelectedLanguage(response.languages[0])
+        }
+      } catch (err) {
+        if (isCancelled) return
+
+        setError('Failed to load languages')
+        console.error('Error loading languages:', err)
+      } finally {
+        if (!isCancelled) {
+          setLoading(false)
+        }
       }
-    } catch (err) {
-      setError('Failed to load languages')
-      console.error('Error loading languages:', err)
-    } finally {
-      setLoading(false)
     }
-  }, [selectedLanguage, setSelectedLanguage])
 
-  // Load languages when component mounts or when menu opens
-  useEffect(() => {
-    if (open && languages.length === 0) {
-      loadLanguages()
-    }
-  }, [open, languages.length, loadLanguages])
+    fetchLanguages()
 
-  // Load selected language on mount if not already loaded
-  useEffect(() => {
-    if (!selectedLanguage) {
-      loadLanguages()
+    return () => {
+      isCancelled = true
     }
-  }, [selectedLanguage, loadLanguages])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // Only run on mount
 
   const handleClick = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget)
@@ -81,7 +96,7 @@ const LanguageChooser = () => {
   }
 
   const renderLanguageDisplay = (language: LanguageSummary) => {
-    if (language.flag_image_filepath) {
+    if (language.flag_image_filepath && !imageErrors.has(language.flag_image_filepath)) {
       return (
         <img
           src={language.flag_image_filepath}
@@ -92,6 +107,7 @@ const LanguageChooser = () => {
             objectFit: 'cover',
             borderRadius: 2,
           }}
+          onError={() => handleImageError(language.flag_image_filepath!)}
         />
       )
     }
@@ -148,7 +164,7 @@ const LanguageChooser = () => {
             selected={selectedLanguage?.id === language.id}
           >
             <ListItemIcon sx={{ minWidth: 40 }}>
-              {language.flag_image_filepath ? (
+              {language.flag_image_filepath && !imageErrors.has(language.flag_image_filepath) ? (
                 <img
                   src={language.flag_image_filepath}
                   alt={`${language.name} flag`}
@@ -158,6 +174,7 @@ const LanguageChooser = () => {
                     objectFit: 'cover',
                     borderRadius: 2,
                   }}
+                  onError={() => handleImageError(language.flag_image_filepath!)}
                 />
               ) : (
                 <LanguageIcon />

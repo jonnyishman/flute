@@ -2,9 +2,10 @@ import { render, screen, waitFor } from '@testing-library/react'
 import { ThemeProvider } from '@mui/material/styles'
 import CssBaseline from '@mui/material/CssBaseline'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { Provider } from 'jotai'
+import { Provider, createStore } from 'jotai'
 import BooksLandingPage from './BooksLandingPage'
 import theme from '../theme'
+import { selectedLanguageAtom } from '../store/atoms'
 
 // Mock the API client
 vi.mock('../api', () => ({
@@ -46,9 +47,19 @@ vi.mock('./BookTile', () => ({
 }))
 
 describe('BooksLandingPage Smoke Tests', () => {
+  const mockLanguage = {
+    id: 1,
+    name: 'English',
+    flag_image_filepath: null,
+  }
+
   const renderComponent = () => {
+    // Create a store with a pre-selected language
+    const store = createStore()
+    store.set(selectedLanguageAtom, mockLanguage)
+
     return render(
-      <Provider>
+      <Provider store={store}>
         <ThemeProvider theme={theme}>
           <CssBaseline />
           <BooksLandingPage />
