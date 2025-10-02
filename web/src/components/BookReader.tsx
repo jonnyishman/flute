@@ -45,7 +45,6 @@ interface BookReaderState {
   loading: boolean
   error: string | null
   chapterContent: string
-  chapterLoading: boolean
   settingsOpen: boolean
   currentChapter: number
   showTransition: boolean
@@ -78,7 +77,6 @@ const BookReader = ({ book: propBook, chapter: propChapter, onBackToLibrary }: B
     loading: !propBook,
     error: null,
     chapterContent: '',
-    chapterLoading: false,
     settingsOpen: false,
     currentChapter: propChapter || (propBook?.lastReadChapter ?? 1),
     showTransition: false,
@@ -114,32 +112,52 @@ const BookReader = ({ book: propBook, chapter: propChapter, onBackToLibrary }: B
   // Load book data if not provided via props
   useEffect(() => {
     if (!state.book && bookId) {
+      let isMounted = true
+
       const loadBook = async () => {
         try {
+          if (!isMounted) return
           setState(prev => ({ ...prev, loading: true, error: null }))
+
           const booksData = await fetchBooks(1, 150)
+          if (!isMounted) return
+
           const foundBook = booksData.books.find(b => b.id === bookId)
 
           if (!foundBook) {
+            if (!isMounted) return
             setState(prev => ({ ...prev, loading: false, error: 'Book not found' }))
             return
           }
 
           // Fetch chapter count from backend
-          const chapterCountResponse = await api.books.getChapterCount(parseInt(bookId, 10))
+          try {
+            const chapterCountResponse = await api.books.getChapterCount(parseInt(bookId, 10))
+            if (!isMounted) return
 
-          setState(prev => ({
-            ...prev,
-            book: { ...foundBook, totalChapters: chapterCountResponse.count },
-            loading: false,
-            currentChapter: chapterId ? parseInt(chapterId, 10) : foundBook.lastReadChapter ?? 1
-          }))
-        } catch (_) {
+            setState(prev => ({
+              ...prev,
+              book: { ...foundBook, totalChapters: chapterCountResponse.count },
+              loading: false,
+              currentChapter: chapterId ? parseInt(chapterId, 10) : foundBook.lastReadChapter ?? 1
+            }))
+          } catch (chapterCountError) {
+            console.error('Failed to load chapter count:', chapterCountError)
+            if (!isMounted) return
+            setState(prev => ({ ...prev, loading: false, error: 'Failed to load chapter count' }))
+          }
+        } catch (error) {
+          console.error('Failed to load book:', error)
+          if (!isMounted) return
           setState(prev => ({ ...prev, loading: false, error: 'Failed to load book' }))
         }
       }
 
       loadBook()
+
+      return () => {
+        isMounted = false
+      }
     }
   }, [bookId, chapterId, state.book])
 
@@ -152,7 +170,7 @@ const BookReader = ({ book: propBook, chapter: propChapter, onBackToLibrary }: B
 
     const loadChapter = async () => {
       try {
-        setState(prev => ({ ...prev, chapterLoading: true, showTransition: true }))
+        setState(prev => ({ ...prev, showTransition: true }))
 
         const response = await api.books.getChapterWithHighlights(parseInt(book.id, 10), chapter)
 
@@ -161,7 +179,6 @@ const BookReader = ({ book: propBook, chapter: propChapter, onBackToLibrary }: B
           setState(prev => ({
             ...prev,
             chapterContent: response.chapter.content,
-            chapterLoading: false,
             showTransition: false,
           }))
         }, 150)
@@ -169,7 +186,6 @@ const BookReader = ({ book: propBook, chapter: propChapter, onBackToLibrary }: B
         console.error('Failed to load chapter:', error)
         setState(prev => ({
           ...prev,
-          chapterLoading: false,
           showTransition: false,
           error: 'Failed to load chapter content',
         }))
