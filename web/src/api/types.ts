@@ -65,6 +65,32 @@ export interface BookCountResponse {
   count: number
 }
 
+// Chapter types
+export interface ChapterResponse {
+  id: number
+  chapter_number: number
+  content: string
+  word_count: number
+}
+
+export interface TermHighlight {
+  term_id: number
+  display: string
+  start_pos: number
+  end_pos: number
+  status: LearningStatus
+  learning_stage: number | null
+}
+
+export interface ChapterWithHighlightsResponse {
+  chapter: ChapterResponse
+  term_highlights: TermHighlight[]
+}
+
+export interface ChapterCountResponse {
+  count: number
+}
+
 // Term types
 export interface UpdateTermRequest {
   status: LearningStatus

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAtom } from 'jotai'
 import {
@@ -31,6 +31,7 @@ import { fetchBooks } from '../data/mockBooks'
 import { Book } from '../types/book'
 import { readerSettingsAtom, ReaderSettings } from '../store/atoms'
 import useBookProgress from '../hooks/useBookProgress'
+import { api } from '../api'
 
 interface BookReaderProps {
   book?: Book
@@ -44,46 +45,10 @@ interface BookReaderState {
   loading: boolean
   error: string | null
   chapterContent: string
+  chapterLoading: boolean
   settingsOpen: boolean
   currentChapter: number
   showTransition: boolean
-}
-
-
-// Mock chapter content generation with error handling
-const generateChapterContent = (bookId: string, chapterNumber: number): string => {
-  try {
-    if (!bookId || chapterNumber < 1) {
-      throw new Error('Invalid parameters for chapter generation')
-    }
-    
-    const paragraphs = Math.floor(Math.random() * 20) + 30 // 30-50 paragraphs per chapter
-    const sentences = [
-      "The ancient oak tree stood majestically in the center of the village square, its gnarled branches reaching toward the cloudy sky.",
-      "She carefully opened the leather-bound book, and the smell of old parchment filled her nostrils.",
-      "The sound of footsteps echoed through the empty corridor, growing louder with each passing moment.",
-      "Golden sunlight streamed through the tall windows, casting dancing shadows on the worn wooden floor.",
-      "He paused at the crossroads, unsure which path would lead him to his destination.",
-      "The distant mountains were shrouded in morning mist, their peaks barely visible through the haze.",
-      "Her fingers traced the intricate patterns carved into the stone wall, feeling the history beneath her touch.",
-      "The old man's eyes twinkled with wisdom as he began to tell his story.",
-      "Rain drummed steadily against the windowpane, creating a soothing rhythm that lulled her to sleep.",
-      "The market square bustled with activity as vendors called out their wares to passing customers.",
-    ]
-    
-    const content = Array.from({ length: paragraphs }, () => {
-      const sentenceCount = Math.floor(Math.random() * 5) + 3 // 3-8 sentences per paragraph
-      const paragraphSentences = Array.from({ length: sentenceCount }, () => 
-        sentences[Math.floor(Math.random() * sentences.length)]
-      )
-      return `${paragraphSentences.join(' ')}`
-    })
-    
-    return content.join('\n\n')
-  } catch (error) {
-    console.error('Failed to generate chapter content:', error)
-    return 'Unable to load chapter content. Please try again later.'
-  }
 }
 
 // Haptic feedback function
@@ -113,6 +78,7 @@ const BookReader = ({ book: propBook, chapter: propChapter, onBackToLibrary }: B
     loading: !propBook,
     error: null,
     chapterContent: '',
+    chapterLoading: false,
     settingsOpen: false,
     currentChapter: propChapter || (propBook?.lastReadChapter ?? 1),
     showTransition: false,
@@ -153,15 +119,18 @@ const BookReader = ({ book: propBook, chapter: propChapter, onBackToLibrary }: B
           setState(prev => ({ ...prev, loading: true, error: null }))
           const booksData = await fetchBooks(1, 150)
           const foundBook = booksData.books.find(b => b.id === bookId)
-          
+
           if (!foundBook) {
             setState(prev => ({ ...prev, loading: false, error: 'Book not found' }))
             return
           }
-          
-          setState(prev => ({ 
-            ...prev, 
-            book: foundBook, 
+
+          // Fetch chapter count from backend
+          const chapterCountResponse = await api.books.getChapterCount(parseInt(bookId, 10))
+
+          setState(prev => ({
+            ...prev,
+            book: { ...foundBook, totalChapters: chapterCountResponse.count },
             loading: false,
             currentChapter: chapterId ? parseInt(chapterId, 10) : foundBook.lastReadChapter ?? 1
           }))
@@ -169,31 +138,46 @@ const BookReader = ({ book: propBook, chapter: propChapter, onBackToLibrary }: B
           setState(prev => ({ ...prev, loading: false, error: 'Failed to load book' }))
         }
       }
-      
+
       loadBook()
     }
   }, [bookId, chapterId, state.book])
 
-  // Memoized chapter content generation
-  const memoizedChapterContent = useMemo(() => {
-    if (!state.book) return ''
-    return generateChapterContent(state.book.id, state.currentChapter)
-  }, [state.book, state.currentChapter])
-
-  // Load chapter content with transition effect
+  // Load chapter content from API
   useEffect(() => {
-    if (memoizedChapterContent) {
-      setState(prev => ({ ...prev, showTransition: true }))
-      const timeout = setTimeout(() => {
-        setState(prev => ({ 
-          ...prev, 
-          chapterContent: memoizedChapterContent,
-          showTransition: false 
+    if (!state.book) return
+
+    const book = state.book
+    const chapter = state.currentChapter
+
+    const loadChapter = async () => {
+      try {
+        setState(prev => ({ ...prev, chapterLoading: true, showTransition: true }))
+
+        const response = await api.books.getChapterWithHighlights(parseInt(book.id, 10), chapter)
+
+        // Transition delay for smooth UI
+        setTimeout(() => {
+          setState(prev => ({
+            ...prev,
+            chapterContent: response.chapter.content,
+            chapterLoading: false,
+            showTransition: false,
+          }))
+        }, 150)
+      } catch (error) {
+        console.error('Failed to load chapter:', error)
+        setState(prev => ({
+          ...prev,
+          chapterLoading: false,
+          showTransition: false,
+          error: 'Failed to load chapter content',
         }))
-      }, 150)
-      return () => clearTimeout(timeout)
+      }
     }
-  }, [memoizedChapterContent])
+
+    loadChapter()
+  }, [state.book, state.currentChapter])
 
   // Update URL when chapter changes
   useEffect(() => {
