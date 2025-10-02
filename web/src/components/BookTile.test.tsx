@@ -15,7 +15,6 @@ const mockBook: Book = {
   learningWords: 15000,
   unknownWords: 10000,
   lastReadDate: '2023-12-01T00:00:00Z',
-  totalChapters: 5
 }
 
 const renderBookTile = (props = {}) => {

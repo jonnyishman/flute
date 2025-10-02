@@ -59,11 +59,15 @@ const BookTile = ({ book, onClick }: BookTileProps) => {
   }
 
   const formatDate = (dateString: string): string => {
+    if (!dateString) return 'Never'
+
     const date = new Date(dateString)
+    if (isNaN(date.getTime())) return 'Never'
+
     const now = new Date()
     const diffTime = Math.abs(now.getTime() - date.getTime())
     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24))
-    
+
     if (diffDays === 0) {
       return 'Today'
     } else if (diffDays === 1) {

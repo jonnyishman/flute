@@ -222,9 +222,10 @@ const BookReader = ({ book: propBook, chapter: propChapter, onBackToLibrary }: B
 
   const changeChapter = useCallback((delta: number) => {
     if (!state.book) return
-    
+
     const newChapter = state.currentChapter + delta
-    if (newChapter >= 1 && newChapter <= state.book.totalChapters) {
+    const maxChapters = state.book.totalChapters ?? 999 // Placeholder for when totalChapters not available
+    if (newChapter >= 1 && newChapter <= maxChapters) {
       triggerHapticFeedback()
       setState(prev => ({ ...prev, currentChapter: newChapter }))
       // Update book progress when changing chapters
@@ -299,7 +300,8 @@ const BookReader = ({ book: propBook, chapter: propChapter, onBackToLibrary }: B
     return null
   }
 
-  const progressPercentage = Math.round((state.currentChapter / state.book.totalChapters) * 100)
+  const totalChapters = state.book.totalChapters ?? 1 // Avoid division by zero
+  const progressPercentage = Math.round((state.currentChapter / totalChapters) * 100)
 
   return (
     <Box sx={{
@@ -371,7 +373,7 @@ const BookReader = ({ book: propBook, chapter: propChapter, onBackToLibrary }: B
                 whiteSpace: 'nowrap'
               }}
             >
-              {isMobile ? `${state.currentChapter}/${state.book.totalChapters}` : `Chapter ${state.currentChapter} of ${state.book.totalChapters}`}
+              {isMobile ? `${state.currentChapter}/${totalChapters}` : `Chapter ${state.currentChapter} of ${totalChapters}`}
             </Typography>
 
             {/* Progress Bar - Hidden on xs screens */}
@@ -410,7 +412,7 @@ const BookReader = ({ book: propBook, chapter: propChapter, onBackToLibrary }: B
 
           <IconButton
             onClick={() => changeChapter(1)}
-            disabled={state.currentChapter >= state.book.totalChapters}
+            disabled={state.currentChapter >= totalChapters}
             aria-label="Next chapter"
             sx={{ mr: { xs: 1, sm: 2 } }}
           >

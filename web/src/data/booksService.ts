@@ -10,7 +10,7 @@ const DEFAULT_LANGUAGE_ID = 1
 /**
  * Maps backend BookSummary to frontend Book format
  */
-function transformBookSummary(summary: BookSummary): Book {
+export function transformBookSummary(summary: BookSummary): Book {
   // Use backend image API if cover art exists, otherwise use placeholder
   const coverArtUrl = summary.cover_art_filepath
     ? `/api/images/${summary.cover_art_filepath}`
@@ -26,7 +26,6 @@ function transformBookSummary(summary: BookSummary): Book {
     knownWords: summary.known_terms,
     lastReadDate: summary.last_read ?? '',
     readProgressRatio: summary.total_terms > 0 ? summary.known_terms / summary.total_terms : 0,
-    totalChapters: 20, // Placeholder - requires separate chapter count endpoint
     lastReadChapter: summary.last_visited_chapter ?? undefined,
   }
 }
