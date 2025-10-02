@@ -1,6 +1,7 @@
 import { atom } from 'jotai'
 import { atomWithStorage } from 'jotai/utils'
 import { SortOptions, DEFAULT_SORT_OPTIONS } from '../types/sorting'
+import { LanguageSummary } from '../api/types'
 
 // Types for our persistent data
 export interface ReaderSettings {
@@ -145,6 +146,16 @@ export const endReadingSessionAtom = atom(
 export const bookSortOptionsAtom = atomWithStorage<SortOptions>(
   'flute-book-sort-options',
   DEFAULT_SORT_OPTIONS,
+  undefined,
+  {
+    getOnInit: true,
+  }
+)
+
+// Selected language (stored persistently)
+export const selectedLanguageAtom = atomWithStorage<LanguageSummary | null>(
+  'flute-selected-language',
+  null,
   undefined,
   {
     getOnInit: true,

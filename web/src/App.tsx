@@ -14,6 +14,7 @@ import { BrowserRouter as Router, Routes, Route, useNavigate } from 'react-route
 import BooksLandingPage from './components/BooksLandingPage'
 import BookReader from './components/BookReader'
 import BookUpload from './components/BookUpload'
+import LanguageChooser from './components/LanguageChooser'
 import PWABadge from './PWABadge.tsx'
 import { Book } from './types/book'
 import StoreProvider from './store/StoreProvider'
@@ -35,7 +36,8 @@ function LibraryPage() {
     <Box sx={{ flexGrow: 1, minHeight: '100vh', bgcolor: 'background.default' }}>
       <AppBar position="static">
         <Toolbar>
-          <MenuBook sx={{ mr: 2 }} />
+          <LanguageChooser />
+          <MenuBook sx={{ mr: 2, ml: 1 }} />
           <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
             Flute - Your Reading Companion
           </Typography>
