@@ -5,6 +5,8 @@ import type {
   BookCountResponse,
   BookSummariesRequest,
   BookSummariesResponse,
+  ChapterCountResponse,
+  ChapterWithHighlightsResponse,
   CreateBookRequest,
   CreateBookResponse,
   CreateTermRequest,
@@ -199,6 +201,23 @@ class ApiClient {
     return response.data
   }
 
+  async getChapterWithHighlights(bookId: number, chapterNumber: number): Promise<ChapterWithHighlightsResponse> {
+    const response = await this.request<ChapterWithHighlightsResponse>(
+      `/books/${bookId}/chapters/${chapterNumber}`,
+      {
+        method: 'GET',
+      }
+    )
+    return response.data
+  }
+
+  async getChapterCount(bookId: number): Promise<ChapterCountResponse> {
+    const response = await this.request<ChapterCountResponse>(`/books/${bookId}/chapters/count`, {
+      method: 'GET',
+    })
+    return response.data
+  }
+
   // Terms API
   async createTerm(request: CreateTermRequest): Promise<TermIdResponse> {
     const response = await this.request<TermIdResponse>('/terms', {
@@ -261,6 +280,9 @@ export const api = {
     create: (request: CreateBookRequest) => apiClient.createBook(request),
     getSummaries: (request: BookSummariesRequest) => apiClient.getBookSummaries(request),
     getCount: (request: BookCountRequest) => apiClient.getBookCount(request),
+    getChapterWithHighlights: (bookId: number, chapterNumber: number) =>
+      apiClient.getChapterWithHighlights(bookId, chapterNumber),
+    getChapterCount: (bookId: number) => apiClient.getChapterCount(bookId),
   },
   terms: {
     create: (request: CreateTermRequest) => apiClient.createTerm(request),
